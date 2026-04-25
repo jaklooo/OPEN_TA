@@ -2,6 +2,7 @@ import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import type { JwtPayload } from './auth.service.js';
+import { getJwtAccessSecret } from './auth.config.js';
 
 declare global {
   namespace Express {
@@ -25,7 +26,7 @@ export class AuthGuard implements CanActivate {
 
     try {
       const payload = this.jwtService.verify(token, {
-        secret: process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret'
+        secret: getJwtAccessSecret()
       }) as JwtPayload;
       request.user = payload;
       return true;

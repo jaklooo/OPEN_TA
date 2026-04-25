@@ -45,6 +45,11 @@ export default function DocumentsPage() {
     }
   };
 
+  const handleDocumentCreated = (document: Document) => {
+    setDocuments((prev) => [document, ...prev.filter((item) => item.id !== document.id)]);
+    void fetchDocuments();
+  };
+
   const handleDeleteDocument = async (documentId: string) => {
     const shouldDelete = window.confirm('Delete this document? Existing codings for it will be removed too.');
     if (!shouldDelete) return;
@@ -78,7 +83,7 @@ export default function DocumentsPage() {
           </Link>
         </header>
 
-        <DocumentUpload projectId={projectId} onDocumentCreated={fetchDocuments} />
+        <DocumentUpload projectId={projectId} onDocumentCreated={handleDocumentCreated} />
 
         {error && <p style={{ color: 'var(--accent-2)' }}>{error}</p>}
 

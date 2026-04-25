@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { TopNav } from '@/components/top-nav';
 import { apiUrl } from '@/lib/api';
@@ -65,10 +65,12 @@ function CodingWorkspace() {
   const [editingCodeName, setEditingCodeName] = useState('');
   const [editingCodeDescription, setEditingCodeDescription] = useState('');
   const [selection, setSelection] = useState<{ start: number; end: number; snippet: string } | null>(null);
+  const [isMobileCodingSheetOpen, setIsMobileCodingSheetOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingCoding, setIsSavingCoding] = useState(false);
   const [error, setError] = useState('');
   const documentTextRef = useRef<HTMLDivElement | null>(null);
+  const selectionReadTimerRef = useRef<number | null>(null);
 
   const selectedDoc = useMemo(
     () => documents.find((doc) => doc.id === selectedDocId) ?? null,
@@ -259,6 +261,7 @@ function CodingWorkspace() {
       const createdCoding = await res.json();
       setCodings((prev) => [createdCoding, ...prev]);
       setSelection(null);
+      setIsMobileCodingSheetOpen(false);
       setCodeName('');
       setCodeDescription('');
     } catch (err) {
@@ -324,25 +327,78 @@ function CodingWorkspace() {
     setCodeDescription(code.description ?? '');
   };
 
-  const getTextOffset = (container: HTMLElement, node: Node, offset: number) => {
+  const renderAssignmentForm = (variant: 'desktop' | 'mobile') => (
+    <form onSubmit={handleCreateCoding} className="panel-form">
+      <div className="selection-card-header">
+        <h3>Assign Selection</h3>
+        {variant === 'mobile' && (
+          <button type="button" className="ghost-button" onClick={() => setIsMobileCodingSheetOpen(false)}>
+            Close
+          </button>
+        )}
+      </div>
+
+      <blockquote>{selection?.snippet}</blockquote>
+
+      <label className="panel-label">
+        Code name
+        <input
+          type="text"
+          placeholder="Start typing a code..."
+          value={codeName}
+          onChange={(event) => setCodeName(event.target.value)}
+          autoFocus={variant === 'desktop'}
+        />
+      </label>
+
+      {codeSuggestions.length > 0 && (
+        <div className="suggestion-list">
+          {codeSuggestions.map((code) => (
+            <button type="button" key={code.id} onClick={() => applyCodeSuggestion(code)}>
+              <strong>{code.name}</strong>
+              {code.description && <span>{code.description}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <label className="panel-label">
+        Code description
+        <textarea
+          placeholder="What should this code mean in this context?"
+          value={codeDescription}
+          onChange={(event) => setCodeDescription(event.target.value)}
+          rows={3}
+        />
+      </label>
+
+      <button
+        type="submit"
+        disabled={isSavingCoding || !codeName.trim()}
+      >
+        {isSavingCoding ? 'Saving...' : 'Save Coding'}
+      </button>
+    </form>
+  );
+
+  const getTextOffset = useCallback((container: HTMLElement, node: Node, offset: number) => {
     const range = document.createRange();
     range.selectNodeContents(container);
     range.setEnd(node, offset);
     return range.toString().length;
-  };
+  }, []);
 
-  const handleTextSelection = () => {
+  const handleTextSelection = useCallback((clearWhenEmpty = true) => {
     const container = documentTextRef.current;
     const browserSelection = window.getSelection();
 
     if (!container || !browserSelection || browserSelection.rangeCount === 0) {
-      setSelection(null);
+      if (clearWhenEmpty) setSelection(null);
       return;
     }
 
     const range = browserSelection.getRangeAt(0);
     if (!container.contains(range.startContainer) || !container.contains(range.endContainer)) {
-      setSelection(null);
       return;
     }
 
@@ -352,7 +408,7 @@ function CodingWorkspace() {
     const normalizedEnd = Math.max(start, end);
 
     if (normalizedStart === normalizedEnd || !selectedDoc) {
-      setSelection(null);
+      if (clearWhenEmpty) setSelection(null);
       return;
     }
 
@@ -361,8 +417,33 @@ function CodingWorkspace() {
       end: normalizedEnd,
       snippet: selectedDoc.plainText.slice(normalizedStart, normalizedEnd)
     });
+    setIsMobileCodingSheetOpen(false);
     setError('');
-  };
+  }, [getTextOffset, selectedDoc]);
+
+  const scheduleTextSelectionRead = useCallback((delay = 120) => {
+    if (selectionReadTimerRef.current) {
+      window.clearTimeout(selectionReadTimerRef.current);
+    }
+
+    selectionReadTimerRef.current = window.setTimeout(() => {
+      handleTextSelection(false);
+    }, delay);
+  }, [handleTextSelection]);
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      scheduleTextSelectionRead(120);
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+      if (selectionReadTimerRef.current) {
+        window.clearTimeout(selectionReadTimerRef.current);
+      }
+    };
+  }, [scheduleTextSelectionRead]);
 
   return (
     <main>
@@ -398,8 +479,10 @@ function CodingWorkspace() {
               <div
                 className="coding-document-text"
                 ref={documentTextRef}
-                onMouseUp={handleTextSelection}
-                onKeyUp={handleTextSelection}
+                onMouseUp={() => scheduleTextSelectionRead(0)}
+                onPointerUp={() => scheduleTextSelectionRead(120)}
+                onTouchEnd={() => scheduleTextSelectionRead(350)}
+                onKeyUp={() => handleTextSelection()}
                 role="textbox"
                 aria-readonly="true"
                 tabIndex={0}
@@ -432,52 +515,11 @@ function CodingWorkspace() {
 
             <aside className="coding-panel">
               <section className="selection-card">
-                <h3>Assign Selection</h3>
-                {selection ? (
-                  <form onSubmit={handleCreateCoding} className="panel-form">
-                    <blockquote>{selection.snippet}</blockquote>
-
-                    <label className="panel-label">
-                      Code name
-                      <input
-                        type="text"
-                        placeholder="Start typing a code..."
-                        value={codeName}
-                        onChange={(event) => setCodeName(event.target.value)}
-                        autoFocus
-                      />
-                    </label>
-
-                    {codeSuggestions.length > 0 && (
-                      <div className="suggestion-list">
-                        {codeSuggestions.map((code) => (
-                          <button type="button" key={code.id} onClick={() => applyCodeSuggestion(code)}>
-                            <strong>{code.name}</strong>
-                            {code.description && <span>{code.description}</span>}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    <label className="panel-label">
-                      Code description
-                      <textarea
-                        placeholder="What should this code mean in this context?"
-                        value={codeDescription}
-                        onChange={(event) => setCodeDescription(event.target.value)}
-                        rows={3}
-                      />
-                    </label>
-
-                    <button
-                      type="submit"
-                      disabled={isSavingCoding || !codeName.trim()}
-                    >
-                      {isSavingCoding ? 'Saving...' : 'Save Coding'}
-                    </button>
-                  </form>
-                ) : (
-                  <p style={{ color: 'var(--muted)' }}>Select text in the document to code it.</p>
+                {selection ? renderAssignmentForm('desktop') : (
+                  <>
+                    <h3>Assign Selection</h3>
+                    <p style={{ color: 'var(--muted)' }}>Select text in the document to code it.</p>
+                  </>
                 )}
               </section>
 
@@ -531,6 +573,30 @@ function CodingWorkspace() {
                 )}
               </section>
             </aside>
+
+            {selection && !isMobileCodingSheetOpen && (
+              <button
+                type="button"
+                className="mobile-code-selection-button"
+                onClick={() => setIsMobileCodingSheetOpen(true)}
+              >
+                Code selection
+              </button>
+            )}
+
+            {selection && isMobileCodingSheetOpen && (
+              <div className="mobile-coding-sheet" role="dialog" aria-modal="true" aria-label="Assign selected text">
+                <button
+                  type="button"
+                  className="mobile-coding-backdrop"
+                  aria-label="Close coding form"
+                  onClick={() => setIsMobileCodingSheetOpen(false)}
+                />
+                <section className="selection-card mobile-coding-card">
+                  {renderAssignmentForm('mobile')}
+                </section>
+              </div>
+            )}
           </div>
         )}
       </section>

@@ -5,22 +5,34 @@ import { apiUrl } from '@/lib/api';
 
 interface DocumentUploadProps {
   projectId: string;
-  onDocumentCreated?: () => void;
+  onDocumentCreated?: (document: CreatedDocument) => void;
+}
+
+interface CreatedDocument {
+  id: string;
+  title: string;
+  plainText: string;
+  sourceType: string;
+  createdAt: string;
 }
 
 export function DocumentUpload({ projectId, onDocumentCreated }: DocumentUploadProps) {
-  const [title, setTitle] = useState('');
+  const [pasteTitle, setPasteTitle] = useState('');
   const [content, setContent] = useState('');
-  const [txtFile, setTxtFile] = useState<File | null>(null);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !content.trim()) return;
+    if (!pasteTitle.trim() || !content.trim()) return;
 
     setIsLoading(true);
     setError('');
+    setSuccess('');
 
     try {
       const token = localStorage.getItem('accessToken');
@@ -31,17 +43,19 @@ export function DocumentUpload({ projectId, onDocumentCreated }: DocumentUploadP
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          title,
+          title: pasteTitle,
           plainText: content,
           sourceType: 'PASTE'
         })
       });
 
       if (!res.ok) throw new Error('Failed to create document');
+      const createdDocument = await res.json();
 
-      setTitle('');
+      setPasteTitle('');
       setContent('');
-      onDocumentCreated?.();
+      setSuccess('Document added to library.');
+      onDocumentCreated?.(createdDocument);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -49,20 +63,24 @@ export function DocumentUpload({ projectId, onDocumentCreated }: DocumentUploadP
     }
   };
 
-  const handleTxtUpload = async (e: React.FormEvent) => {
+  const handleFileUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !txtFile) return;
+    if (!uploadTitle.trim() || !documentFile) {
+      setError('Choose a file and add a document title.');
+      return;
+    }
 
     setIsLoading(true);
     setError('');
+    setSuccess('');
 
     try {
       const token = localStorage.getItem('accessToken');
       const formData = new FormData();
-      formData.append('title', title);
-      formData.append('file', txtFile);
+      formData.append('title', uploadTitle);
+      formData.append('file', documentFile);
 
-      const res = await fetch(apiUrl(`/projects/${projectId}/documents/upload/txt`), {
+      const res = await fetch(apiUrl(`/projects/${projectId}/documents/upload`), {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`
@@ -70,11 +88,18 @@ export function DocumentUpload({ projectId, onDocumentCreated }: DocumentUploadP
         body: formData
       });
 
-      if (!res.ok) throw new Error('Failed to upload .txt document');
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message ?? 'Failed to upload document');
+      }
 
-      setTitle('');
-      setTxtFile(null);
-      onDocumentCreated?.();
+      const createdDocument = await res.json();
+
+      setUploadTitle('');
+      setDocumentFile(null);
+      setFileInputKey((value) => value + 1);
+      setSuccess('Document uploaded and added to library.');
+      onDocumentCreated?.(createdDocument);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -86,14 +111,15 @@ export function DocumentUpload({ projectId, onDocumentCreated }: DocumentUploadP
     <div className="card">
       <h3 style={{ marginTop: 0 }}>Add Document</h3>
       {error && <p style={{ color: 'var(--accent-2)' }}>{error}</p>}
+      {success && <p style={{ color: 'var(--accent)' }}>{success}</p>}
       <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '0.7rem' }}>
         <label>
           Document Title
           <input
             type="text"
             placeholder="e.g., Interview Transcript"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            value={pasteTitle}
+            onChange={(e) => setPasteTitle(e.target.value)}
             style={{ width: '100%' }}
           />
         </label>
@@ -113,18 +139,35 @@ export function DocumentUpload({ projectId, onDocumentCreated }: DocumentUploadP
 
       <hr style={{ margin: '1rem 0' }} />
 
-      <form onSubmit={handleTxtUpload} style={{ display: 'grid', gap: '0.7rem' }}>
+      <form onSubmit={handleFileUpload} style={{ display: 'grid', gap: '0.7rem' }}>
         <label>
-          Upload .txt File
+          Document Title
           <input
-            type="file"
-            accept=".txt,text/plain"
-            onChange={(e) => setTxtFile(e.target.files?.[0] ?? null)}
+            type="text"
+            placeholder="Auto-filled from file name"
+            value={uploadTitle}
+            onChange={(e) => setUploadTitle(e.target.value)}
             style={{ width: '100%' }}
           />
         </label>
-        <button type="submit" disabled={isLoading || !txtFile}>
-          {isLoading ? 'Uploading...' : 'Upload TXT'}
+        <label>
+          Upload File
+          <input
+            key={fileInputKey}
+            type="file"
+            accept=".txt,.docx,.pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              setDocumentFile(file);
+              if (file && !uploadTitle.trim()) {
+                setUploadTitle(file.name.replace(/\.[^.]+$/, ''));
+              }
+            }}
+            style={{ width: '100%' }}
+          />
+        </label>
+        <button type="submit" disabled={isLoading || !documentFile || !uploadTitle.trim()}>
+          {isLoading ? 'Uploading...' : 'Upload TXT / DOCX / PDF'}
         </button>
       </form>
     </div>

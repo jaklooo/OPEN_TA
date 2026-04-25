@@ -1,13 +1,17 @@
 import { DocumentSourceType } from '@prisma/client';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TxtParser } from '../ingestion/parsers/txt.parser.js';
+import { DocxParser } from '../ingestion/parsers/docx.parser.js';
+import { PdfParser } from '../ingestion/parsers/pdf.parser.js';
 
 @Injectable()
 export class DocumentsService {
   constructor(private readonly prisma: PrismaService) {}
 
   private readonly txtParser = new TxtParser();
+  private readonly docxParser = new DocxParser();
+  private readonly pdfParser = new PdfParser();
 
   async create(
     userId: string,
@@ -74,21 +78,38 @@ export class DocumentsService {
     });
   }
 
-  async createFromTxtUpload(
+  async createFromUpload(
     userId: string,
     projectId: string,
     title: string,
+    fileName: string,
     fileBuffer: Buffer
   ) {
-    const parsed = await this.txtParser.parse(fileBuffer);
+    const lowerFileName = fileName.toLowerCase();
+    const parser = lowerFileName.endsWith('.txt')
+      ? this.txtParser
+      : lowerFileName.endsWith('.docx')
+        ? this.docxParser
+        : lowerFileName.endsWith('.pdf')
+          ? this.pdfParser
+          : null;
 
-    return this.create(
-      userId,
-      projectId,
-      title,
-      parsed.plainText,
-      DocumentSourceType.TXT
-    );
+    if (!parser) {
+      throw new BadRequestException('Only .txt, .docx, and .pdf uploads are supported');
+    }
+
+    try {
+      const parsed = await parser.parse(fileBuffer);
+      return this.create(
+        userId,
+        projectId,
+        title,
+        parsed.plainText,
+        parsed.metadata.sourceType as DocumentSourceType
+      );
+    } catch (error) {
+      throw new BadRequestException((error as Error).message);
+    }
   }
 
   private async assertProjectOwnership(userId: string, projectId: string) {

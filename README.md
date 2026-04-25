@@ -1,45 +1,104 @@
 # OPEN_TA
 
-OPEN_TA is a web application for thematic analysis with desktop and mobile coding workflows.
+OPEN_TA is a web application for qualitative coding and thematic analysis. It supports document upload, text coding, theme layering, data review, and CSV/XLSX export.
 
-## Monorepo layout
+## Features
 
-- apps/web: Next.js frontend (landing, auth, projects, documents, thematic analysis, data view, import/export skeletons)
-- apps/api: NestJS backend (auth, projects, documents, codes, themes, codings stubs)
-- packages/shared: shared DTO contracts and schemas
+- Project-based document library
+- Paste, TXT, DOCX, and PDF document ingestion
+- Desktop and mobile-friendly coding workflow
+- Text selection coding with reusable code names and descriptions
+- Colored coding highlights by code
+- Code editing and deletion
+- Document-level and global thematic analysis
+- Multi-layer theme building
+- Data view for document and project-level codes/themes
+- CSV and XLSX export of coding results
 
-## Quick start
+## Monorepo Layout
 
-1. Install Node.js 20+ and pnpm 9+.
-2. Copy `.env.example` to `.env`.
-3. Start database:
-   - `docker compose up -d`
-4. Install dependencies:
-   - `pnpm install`
-5. Generate Prisma client and migrate:
-   - `pnpm --filter @open-ta/api prisma:generate`
-   - `pnpm --filter @open-ta/api prisma:migrate`
-6. Run apps:
-   - `pnpm dev`
+- `apps/web` - Next.js frontend
+- `apps/api` - NestJS API
+- `packages/shared` - shared package placeholder for future contracts/utilities
 
-## API docs
+## Requirements
 
-After starting API, Swagger should be at:
+- Node.js 20+
+- pnpm 9+
+- PostgreSQL 16+
 
-- http://localhost:4000/api/docs
+## Local Setup
 
-## Current implementation status
+Install dependencies:
 
-- Bootstrap complete for Day 1 architecture.
-- API endpoints are scaffolded with validation DTOs.
-- Prisma schema reflects projects, documents, codings, codes, and layer-1 themes.
-- TXT parser is implemented; PDF/DOCX parser interfaces are ready.
-- Frontend routes and responsive shell are scaffolded.
+```bash
+pnpm install
+```
 
-## Next implementation steps
+Create environment variables:
 
-1. Wire real database services into API controllers.
-2. Replace auth placeholder with user persistence and refresh token flow.
-3. Implement file upload endpoints and PDF/DOCX parsing adapters.
-4. Connect frontend forms and coding interactions to API.
-5. Implement CSV/XLSX export pipeline.
+```bash
+cp .env.example .env
+```
+
+Start local Postgres:
+
+```bash
+docker compose up -d
+```
+
+Generate Prisma client and run migrations:
+
+```bash
+pnpm --filter @open-ta/api prisma:generate
+pnpm --filter @open-ta/api prisma:migrate
+```
+
+Start the API and web app:
+
+```bash
+pnpm dev
+```
+
+Default local URLs:
+
+- Web: `http://localhost:3001`
+- API: `http://localhost:4000/api`
+- Swagger docs: `http://localhost:4000/api/docs`
+
+## Environment Variables
+
+API:
+
+- `DATABASE_URL` - PostgreSQL connection string
+- `JWT_ACCESS_SECRET` - secret for access tokens
+- `JWT_REFRESH_SECRET` - secret for refresh tokens
+- `CORS_ORIGIN` - comma-separated allowed frontend origins, for example `https://your-app.vercel.app`
+- `PORT` - API port, defaults to `4000`
+- `HOST` - API host, defaults to `0.0.0.0`
+
+Web:
+
+- `NEXT_PUBLIC_API_URL` - public API base URL, for example `https://your-api.up.railway.app/api`
+
+## Production Notes
+
+In production, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `CORS_ORIGIN` must be set. Do not reuse the placeholder values from `.env.example`.
+
+A recommended deployment shape is:
+
+- `apps/web` on Vercel
+- `apps/api` on Railway, Render, Fly.io, or another Node hosting provider
+- PostgreSQL on Railway or any managed Postgres provider
+
+## Development Commands
+
+```bash
+pnpm --filter @open-ta/web typecheck
+pnpm --filter @open-ta/api typecheck
+pnpm --filter @open-ta/api prisma:migrate
+```
+
+## License
+
+MIT

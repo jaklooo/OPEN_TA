@@ -44,13 +44,13 @@ class UpdateDocumentDto {
   plainText?: string;
 }
 
-class UploadTxtDto {
+class UploadDocumentDto {
   @IsString()
   @MinLength(2)
   title!: string;
 }
 
-type UploadedTxtFile = {
+type UploadedDocumentFile = {
   originalname: string;
   buffer: Buffer;
 };
@@ -80,23 +80,34 @@ export class DocumentsController {
     );
   }
 
-  @Post('upload/txt')
+  @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadTxt(
+  async uploadDocument(
     @CurrentUser() user: JwtPayload,
     @Param('projectId') projectId: string,
-    @Body() body: UploadTxtDto,
-    @UploadedFile() file?: UploadedTxtFile
+    @Body() body: UploadDocumentDto,
+    @UploadedFile() file?: UploadedDocumentFile
   ) {
     if (!file) {
       throw new BadRequestException('Missing file');
     }
 
-    if (!file.originalname.toLowerCase().endsWith('.txt')) {
-      throw new BadRequestException('Only .txt uploads are supported right now');
+    if (!/\.(txt|docx|pdf)$/i.test(file.originalname)) {
+      throw new BadRequestException('Only .txt, .docx, and .pdf uploads are supported');
     }
 
-    return this.documentsService.createFromTxtUpload(user.sub, projectId, body.title, file.buffer);
+    return this.documentsService.createFromUpload(user.sub, projectId, body.title, file.originalname, file.buffer);
+  }
+
+  @Post('upload/txt')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadTxt(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Body() body: UploadDocumentDto,
+    @UploadedFile() file?: UploadedDocumentFile
+  ) {
+    return this.uploadDocument(user, projectId, body, file);
   }
 
   @Get(':documentId')
