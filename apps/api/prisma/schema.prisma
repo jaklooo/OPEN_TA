@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DocumentSourceType {
+  TXT
+  PDF
+  DOCX
+  PASTE
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  displayName  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  projects     Project[]
+}
+
+model Project {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  owner       User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  documents   Document[]
+  codes       Code[]
+  codings     Coding[]
+  themes      Theme[]
+
+  @@index([ownerId])
+}
+
+model Document {
+  id          String             @id @default(cuid())
+  projectId   String
+  project     Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  sourceType  DocumentSourceType
+  rawFilePath String?
+  plainText   String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  codings     Coding[]
+  themes      Theme[]
+
+  @@index([projectId])
+}
+
+model Code {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  codings     Coding[]
+  themeLinks  ThemeCode[]
+
+  @@index([projectId, createdAt(sort: Desc)])
+}
+
+model Coding {
+  id          String    @id @default(cuid())
+  projectId   String
+  documentId  String
+  codeId      String
+  snippet     String
+  startIndex  Int
+  endIndex    Int
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  code        Code      @relation(fields: [codeId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, documentId, createdAt(sort: Desc)])
+}
+
+model Theme {
+  id               String       @id @default(cuid())
+  projectId        String
+  project          Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  documentId       String?
+  document         Document?    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  name             String
+  layer            Int          @default(1)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  codeLinks        ThemeCode[]
+  parentThemeLinks ThemeTheme[] @relation("ChildThemeLinks")
+  childThemeLinks  ThemeTheme[] @relation("ParentThemeLinks")
+
+  @@index([projectId, layer])
+  @@index([projectId, documentId, layer])
+}
+
+model ThemeCode {
+  themeId String
+  codeId  String
+  theme   Theme   @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  code    Code    @relation(fields: [codeId], references: [id], onDelete: Cascade)
+
+  @@id([themeId, codeId])
+}
+
+model ThemeTheme {
+  childThemeId  String
+  parentThemeId String
+  childTheme    Theme  @relation("ChildThemeLinks", fields: [childThemeId], references: [id], onDelete: Cascade)
+  parentTheme   Theme  @relation("ParentThemeLinks", fields: [parentThemeId], references: [id], onDelete: Cascade)
+
+  @@id([childThemeId, parentThemeId])
+}
