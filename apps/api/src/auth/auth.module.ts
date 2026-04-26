@@ -10,7 +10,7 @@ import { getJwtAccessSecret } from './auth.config.js';
     JwtModule.register({
       global: true,
       secret: getJwtAccessSecret(),
-      signOptions: { expiresIn: '15m' }
+      signOptions: { expiresIn: '8h' }
     })
   ],
   controllers: [AuthController],
