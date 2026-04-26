@@ -1,8 +1,12 @@
 const DEFAULT_API_URL = 'http://localhost:4000/api';
 
 function getRuntimeApiUrl() {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+
   if (typeof window === 'undefined') {
-    return process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
+    return DEFAULT_API_URL;
   }
 
   const { protocol, hostname } = window.location;
@@ -12,7 +16,7 @@ function getRuntimeApiUrl() {
     return `${protocol}//${hostname}:4000/api`;
   }
 
-  return process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
+  return DEFAULT_API_URL;
 }
 
 function normalizeApiBaseUrl(value?: string) {
