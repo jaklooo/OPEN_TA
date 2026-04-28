@@ -359,6 +359,42 @@ main {
   min-width: min(360px, 100%);
 }
 
+.import-card {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.mapping-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.7rem;
+}
+
+.mapping-grid label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.import-preview {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  background: #f7f4ec;
+}
+
+.import-preview div {
+  display: grid;
+  gap: 0.15rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--line);
+}
+
+.import-preview small,
+.import-preview span {
+  color: var(--muted);
+}
+
 .layer-tabs button {
   border-color: var(--line);
   background: transparent;

@@ -20,7 +20,7 @@ class GlobalModule {}
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['../../.env', '.env', '../../.env.example']
+      envFilePath: ['../../.env.local', '.env.local', '../../.env', '.env', '../../.env.example']
     }),
     GlobalModule,
     AuthModule,

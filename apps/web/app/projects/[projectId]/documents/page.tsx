@@ -99,15 +99,25 @@ export default function DocumentsPage() {
                 <article className="document-row" key={doc.id}>
                   <div>
                     <strong>{doc.title}</strong>
-                    <p>{doc.plainText.slice(0, 180)}{doc.plainText.length > 180 ? '...' : ''}</p>
+                    <p>
+                      {doc.sourceType === 'IMPORTED_CODES'
+                        ? 'Imported codes only'
+                        : `${doc.plainText.slice(0, 180)}${doc.plainText.length > 180 ? '...' : ''}`}
+                    </p>
                     <small>
                       {doc.sourceType} · {new Date(doc.createdAt).toLocaleDateString()}
                     </small>
                   </div>
                   <div className="document-row-actions">
-                    <Link className="nav-link" href={`/projects/${projectId}/coding?documentId=${doc.id}`}>
-                      Code
-                    </Link>
+                    {doc.sourceType === 'IMPORTED_CODES' ? (
+                      <Link className="nav-link" href={`/projects/${projectId}/data-view`}>
+                        View Data
+                      </Link>
+                    ) : (
+                      <Link className="nav-link" href={`/projects/${projectId}/coding?documentId=${doc.id}`}>
+                        Code
+                      </Link>
+                    )}
                     <button type="button" onClick={() => handleDeleteDocument(doc.id)}>
                       Delete
                     </button>

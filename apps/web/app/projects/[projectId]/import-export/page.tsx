@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { type ChangeEvent, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { TopNav } from '@/components/top-nav';
 import { apiUrl } from '@/lib/api';
@@ -43,6 +43,35 @@ const EXPORT_COLUMNS: Array<keyof ExportRow> = [
   'code_description'
 ];
 
+const IMPORT_FIELDS = [
+  { key: 'codeName', label: 'Code' },
+  { key: 'snippet', label: 'Marked text' },
+  { key: 'codeDescription', label: 'Code description' },
+  { key: 'startIndex', label: 'Start string/index' },
+  { key: 'endIndex', label: 'End string/index' }
+] as const;
+
+type ImportField = (typeof IMPORT_FIELDS)[number]['key'];
+type ColumnMapping = Record<ImportField, string>;
+type CsvRow = Record<string, string>;
+
+const REQUIRED_IMPORT_FIELDS: ImportField[] = ['codeName', 'snippet', 'startIndex', 'endIndex'];
+const EMPTY_MAPPING: ColumnMapping = {
+  codeName: '',
+  snippet: '',
+  codeDescription: '',
+  startIndex: '',
+  endIndex: ''
+};
+
+const FIELD_COLUMN_HINTS: Record<ImportField, string[]> = {
+  codeName: ['code', 'code_name', 'kod', 'kód'],
+  snippet: ['analyzed_text', 'marked_text', 'selected_text', 'snippet', 'text', 'označený text', 'oznaceny text'],
+  codeDescription: ['code_description', 'description', 'code_desc', 'popis', 'popis kódu', 'popis kodu'],
+  startIndex: ['start_string', 'start_index', 'start', 'začiatok', 'zaciatok'],
+  endIndex: ['end_string', 'end_index', 'end', 'koniec']
+};
+
 function escapeCsvCell(value: string | number) {
   const stringValue = String(value);
   if (!/[",\n\r]/.test(stringValue)) return stringValue;
@@ -67,6 +96,78 @@ function downloadBlob(blob: Blob, filename: string) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+function parseCsv(text: string) {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    const nextCharacter = text[index + 1];
+
+    if (character === '"' && inQuotes && nextCharacter === '"') {
+      cell += '"';
+      index += 1;
+      continue;
+    }
+
+    if (character === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (character === ',' && !inQuotes) {
+      row.push(cell);
+      cell = '';
+      continue;
+    }
+
+    if ((character === '\n' || character === '\r') && !inQuotes) {
+      if (character === '\r' && nextCharacter === '\n') index += 1;
+      row.push(cell);
+      if (row.some((value) => value.trim())) rows.push(row);
+      row = [];
+      cell = '';
+      continue;
+    }
+
+    cell += character;
+  }
+
+  row.push(cell);
+  if (row.some((value) => value.trim())) rows.push(row);
+
+  const [headerRow, ...dataRows] = rows;
+  if (!headerRow) return { headers: [], rows: [] };
+
+  const headers = headerRow.map((header) => header.trim().replace(/^\uFEFF/, ''));
+  return {
+    headers,
+    rows: dataRows.map((dataRow) =>
+      Object.fromEntries(headers.map((header, index) => [header, dataRow[index]?.trim() ?? '']))
+    )
+  };
+}
+
+function inferMapping(headers: string[]): ColumnMapping {
+  const mapping = { ...EMPTY_MAPPING };
+  const normalizedHeaders = headers.map((header) => ({ raw: header, normalized: header.trim().toLowerCase() }));
+
+  for (const field of IMPORT_FIELDS) {
+    const match = normalizedHeaders.find((header) => FIELD_COLUMN_HINTS[field.key].includes(header.normalized));
+    if (match) mapping[field.key] = match.raw;
+  }
+
+  return mapping;
+}
+
+function parseIndex(value: string, fallback: number) {
+  const trimmedValue = value.trim();
+  const parsed = Number.parseInt(trimmedValue, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
 function buildCsv(rows: ExportRow[]) {
@@ -229,7 +330,13 @@ export default function ImportExportPage() {
   const params = useParams();
   const projectId = params.projectId as string;
   const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [importDocumentName, setImportDocumentName] = useState('');
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
+  const [columnMapping, setColumnMapping] = useState<ColumnMapping>(EMPTY_MAPPING);
 
   const fetchExportRows = async (): Promise<ExportRow[]> => {
     const token = localStorage.getItem('accessToken');
@@ -269,6 +376,7 @@ export default function ImportExportPage() {
     try {
       setIsExporting(true);
       setError('');
+      setSuccess('');
       const rows = await fetchExportRows();
       downloadBlob(new Blob([buildCsv(rows)], { type: 'text/csv;charset=utf-8' }), 'open-ta-codings.csv');
     } catch (err) {
@@ -282,12 +390,106 @@ export default function ImportExportPage() {
     try {
       setIsExporting(true);
       setError('');
+      setSuccess('');
       const rows = await fetchExportRows();
       downloadBlob(buildXlsx(rows), 'open-ta-codings.xlsx');
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setError('');
+      setSuccess('');
+      const parsed = parseCsv(await file.text());
+      if (parsed.headers.length === 0) throw new Error('CSV file does not contain a header row');
+      setCsvHeaders(parsed.headers);
+      setCsvRows(parsed.rows);
+      setColumnMapping(inferMapping(parsed.headers));
+      if (!importDocumentName.trim()) {
+        setImportDocumentName(file.name.replace(/\.csv$/i, ''));
+      }
+    } catch (err) {
+      setCsvHeaders([]);
+      setCsvRows([]);
+      setColumnMapping(EMPTY_MAPPING);
+      setError((err as Error).message);
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const updateMapping = (field: ImportField, value: string) => {
+    setColumnMapping((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleImportCodings = async () => {
+    const missingField = REQUIRED_IMPORT_FIELDS.find((field) => !columnMapping[field]);
+    if (missingField) {
+      setError(`Map the ${IMPORT_FIELDS.find((field) => field.key === missingField)?.label} column before importing`);
+      return;
+    }
+
+    if (!importDocumentName.trim()) {
+      setError('Add a document name for the imported codes');
+      return;
+    }
+
+    try {
+      setIsImporting(true);
+      setError('');
+      setSuccess('');
+
+      const rows = csvRows
+        .map((row, index) => {
+          const snippet = row[columnMapping.snippet]?.trim() ?? '';
+          return {
+            codeName: row[columnMapping.codeName]?.trim() ?? '',
+            snippet,
+            codeDescription: columnMapping.codeDescription
+              ? row[columnMapping.codeDescription]?.trim() || undefined
+              : undefined,
+            startIndex: parseIndex(row[columnMapping.startIndex] ?? '', index),
+            endIndex: parseIndex(row[columnMapping.endIndex] ?? '', index + snippet.length)
+          };
+        })
+        .filter((row) => row.codeName && row.snippet);
+
+      if (rows.length === 0) throw new Error('No importable rows found in the CSV');
+
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch(apiUrl(`/projects/${projectId}/documents/import-codings`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: importDocumentName.trim(),
+          rows
+        })
+      });
+
+      if (!res.ok) {
+        const message = await res.text();
+        throw new Error(message || 'Failed to import coded rows');
+      }
+
+      setSuccess(`Imported ${rows.length} coded excerpts into "${importDocumentName.trim()}".`);
+      setCsvHeaders([]);
+      setCsvRows([]);
+      setColumnMapping(EMPTY_MAPPING);
+      setImportDocumentName('');
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -298,11 +500,70 @@ export default function ImportExportPage() {
         <header className="page-heading">
           <div>
             <h2>Import / Export</h2>
-            <p>Export coded excerpts for analysis in spreadsheet tools.</p>
+            <p>Import mapped CSV coding data or export coded excerpts for spreadsheet tools.</p>
           </div>
         </header>
 
         {error && <p style={{ color: 'var(--accent-2)' }}>{error}</p>}
+        {success && <p style={{ color: 'var(--accent)' }}>{success}</p>}
+
+        <div className="card import-card">
+          <div>
+            <strong>Import coded CSV</strong>
+            <p style={{ color: 'var(--muted)' }}>
+              Upload a CSV, map its columns, name the imported document, then add its codings to Data View.
+            </p>
+          </div>
+
+          <label className="panel-label">
+            CSV file
+            <input type="file" accept=".csv,text/csv" onChange={handleImportFile} />
+          </label>
+
+          {csvHeaders.length > 0 && (
+            <>
+              <label className="panel-label">
+                Imported document name
+                <input
+                  type="text"
+                  value={importDocumentName}
+                  onChange={(event) => setImportDocumentName(event.target.value)}
+                  placeholder="Document name in OPEN_TA"
+                />
+              </label>
+
+              <div className="mapping-grid">
+                {IMPORT_FIELDS.map((field) => (
+                  <label key={field.key}>
+                    {field.label}
+                    <select value={columnMapping[field.key]} onChange={(event) => updateMapping(field.key, event.target.value)}>
+                      <option value="">Select CSV column</option>
+                      {csvHeaders.map((header) => (
+                        <option value={header} key={header}>
+                          {header}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+
+              <div className="import-preview">
+                <small>{csvRows.length} CSV rows found</small>
+                {csvRows.slice(0, 3).map((row, index) => (
+                  <div key={`${index}-${row[csvHeaders[0]] ?? ''}`}>
+                    <strong>{columnMapping.codeName ? row[columnMapping.codeName] : 'Code preview'}</strong>
+                    <span>{columnMapping.snippet ? row[columnMapping.snippet] : 'Marked text preview'}</span>
+                  </div>
+                ))}
+              </div>
+
+              <button type="button" onClick={handleImportCodings} disabled={isImporting}>
+                {isImporting ? 'Importing...' : 'Import mapped codings'}
+              </button>
+            </>
+          )}
+        </div>
 
         <div className="card" style={{ display: 'grid', gap: '0.8rem' }}>
           <div>

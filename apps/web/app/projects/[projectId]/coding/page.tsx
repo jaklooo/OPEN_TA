@@ -76,6 +76,7 @@ function CodingWorkspace() {
     () => documents.find((doc) => doc.id === selectedDocId) ?? null,
     [documents, selectedDocId]
   );
+  const isImportedCodesDocument = selectedDoc?.sourceType === 'IMPORTED_CODES';
   const codeColorMap = useMemo(() => {
     const colors = [
       '#fef08a',
@@ -106,6 +107,7 @@ function CodingWorkspace() {
 
   const highlightedText = useMemo(() => {
     if (!selectedDoc) return [];
+    if (selectedDoc.sourceType === 'IMPORTED_CODES') return [{ text: 'Imported codes only' }];
 
     const sortedCodings = [...codings]
       .filter((coding) => coding.startIndex < coding.endIndex)
@@ -235,7 +237,7 @@ function CodingWorkspace() {
 
   const handleCreateCoding = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDoc || !selection || !selection.snippet.trim()) return;
+    if (!selectedDoc || isImportedCodesDocument || !selection || !selection.snippet.trim()) return;
     if (!codeName.trim()) return;
 
     try {
@@ -407,7 +409,7 @@ function CodingWorkspace() {
     const normalizedStart = Math.min(start, end);
     const normalizedEnd = Math.max(start, end);
 
-    if (normalizedStart === normalizedEnd || !selectedDoc) {
+    if (normalizedStart === normalizedEnd || !selectedDoc || isImportedCodesDocument) {
       if (clearWhenEmpty) setSelection(null);
       return;
     }
@@ -419,7 +421,7 @@ function CodingWorkspace() {
     });
     setIsMobileCodingSheetOpen(false);
     setError('');
-  }, [getTextOffset, selectedDoc]);
+  }, [getTextOffset, isImportedCodesDocument, selectedDoc]);
 
   const scheduleTextSelectionRead = useCallback((delay = 120) => {
     if (selectionReadTimerRef.current) {
@@ -479,10 +481,18 @@ function CodingWorkspace() {
               <div
                 className="coding-document-text"
                 ref={documentTextRef}
-                onMouseUp={() => scheduleTextSelectionRead(0)}
-                onPointerUp={() => scheduleTextSelectionRead(120)}
-                onTouchEnd={() => scheduleTextSelectionRead(350)}
-                onKeyUp={() => handleTextSelection()}
+                onMouseUp={() => {
+                  if (!isImportedCodesDocument) scheduleTextSelectionRead(0);
+                }}
+                onPointerUp={() => {
+                  if (!isImportedCodesDocument) scheduleTextSelectionRead(120);
+                }}
+                onTouchEnd={() => {
+                  if (!isImportedCodesDocument) scheduleTextSelectionRead(350);
+                }}
+                onKeyUp={() => {
+                  if (!isImportedCodesDocument) handleTextSelection();
+                }}
                 role="textbox"
                 aria-readonly="true"
                 tabIndex={0}
@@ -503,7 +513,9 @@ function CodingWorkspace() {
                 )}
               </div>
               <footer>
-                {selection ? (
+                {isImportedCodesDocument ? (
+                  <span>Imported codes only. Review and analyze these excerpts in Data View.</span>
+                ) : selection ? (
                   <span>
                     Selected chars: {selection.start} - {selection.end}
                   </span>
@@ -515,7 +527,12 @@ function CodingWorkspace() {
 
             <aside className="coding-panel">
               <section className="selection-card">
-                {selection ? renderAssignmentForm('desktop') : (
+                {isImportedCodesDocument ? (
+                  <>
+                    <h3>Imported Codes</h3>
+                    <p style={{ color: 'var(--muted)' }}>This document contains imported coded excerpts only.</p>
+                  </>
+                ) : selection ? renderAssignmentForm('desktop') : (
                   <>
                     <h3>Assign Selection</h3>
                     <p style={{ color: 'var(--muted)' }}>Select text in the document to code it.</p>

@@ -112,6 +112,123 @@ export class DocumentsService {
     }
   }
 
+  async importCodings(
+    userId: string,
+    projectId: string,
+    title: string,
+    rows: Array<{
+      codeName: string;
+      snippet: string;
+      codeDescription?: string;
+      startIndex: number;
+      endIndex: number;
+    }>
+  ) {
+    await this.assertProjectOwnership(userId, projectId);
+
+    const normalizedTitle = title.trim();
+    if (!normalizedTitle) {
+      throw new BadRequestException('Document name is required');
+    }
+
+    const preparedRows = rows.map((row, index) => {
+      const codeName = row.codeName?.trim();
+      const snippet = row.snippet?.trim();
+      const codeDescription = row.codeDescription?.trim() || undefined;
+
+      if (!codeName || !snippet) {
+        throw new BadRequestException(`Row ${index + 1} is missing a code or marked text`);
+      }
+
+      if (!Number.isInteger(row.startIndex) || !Number.isInteger(row.endIndex) || row.startIndex < 0 || row.endIndex < 0) {
+        throw new BadRequestException(`Row ${index + 1} has invalid start or end values`);
+      }
+
+      return {
+        codeName,
+        snippet,
+        codeDescription,
+        startIndex: row.startIndex,
+        endIndex: row.endIndex
+      };
+    });
+
+    if (preparedRows.length === 0) {
+      throw new BadRequestException('CSV import needs at least one row');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const document = await tx.document.create({
+        data: {
+          projectId,
+          title: normalizedTitle,
+          sourceType: DocumentSourceType.IMPORTED_CODES,
+          plainText: 'Imported codes only'
+        }
+      });
+
+      const existingCodes = await tx.code.findMany({
+        where: { projectId }
+      });
+      const codeByKey = new Map(
+        existingCodes.map((code) => [this.codeKey(code.name, code.description), code])
+      );
+      const missingCodes = new Map<string, { name: string; description?: string }>();
+
+      for (const row of preparedRows) {
+        const key = this.codeKey(row.codeName, row.codeDescription);
+        if (!codeByKey.has(key) && !missingCodes.has(key)) {
+          missingCodes.set(key, {
+            name: row.codeName,
+            description: row.codeDescription
+          });
+        }
+      }
+
+      if (missingCodes.size > 0) {
+        await tx.code.createMany({
+          data: Array.from(missingCodes.values()).map((code) => ({
+            projectId,
+            name: code.name,
+            description: code.description
+          }))
+        });
+
+        const allCodes = await tx.code.findMany({
+          where: { projectId }
+        });
+
+        codeByKey.clear();
+        for (const code of allCodes) {
+          codeByKey.set(this.codeKey(code.name, code.description), code);
+        }
+      }
+
+      await tx.coding.createMany({
+        data: preparedRows.map((row) => {
+          const code = codeByKey.get(this.codeKey(row.codeName, row.codeDescription));
+          if (!code) {
+            throw new BadRequestException(`Code "${row.codeName}" could not be prepared for import`);
+          }
+
+          return {
+            projectId,
+            documentId: document.id,
+            codeId: code.id,
+            snippet: row.snippet,
+            startIndex: row.startIndex,
+            endIndex: row.endIndex
+          };
+        })
+      });
+
+      return tx.document.findUnique({
+        where: { id: document.id },
+        include: { codings: { include: { code: true } } }
+      });
+    }, { maxWait: 10_000, timeout: 60_000 });
+  }
+
   private async assertProjectOwnership(userId: string, projectId: string) {
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, ownerId: userId },
@@ -121,5 +238,9 @@ export class DocumentsService {
     if (!project) {
       throw new NotFoundException('Project not found');
     }
+  }
+
+  private codeKey(name: string, description?: string | null) {
+    return `${name.trim().toLowerCase()}::${(description ?? '').trim().toLowerCase()}`;
   }
 }

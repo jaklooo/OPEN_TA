@@ -12,6 +12,7 @@ enum DocumentSourceType {
   PDF
   DOCX
   PASTE
+  IMPORTED_CODES
 }
 
 model User {

@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { DocumentSourceType } from '@prisma/client';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsIn, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
 import { DocumentsService } from './documents.service.js';
 import { AuthGuard } from '../auth/auth.guard.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
@@ -48,6 +48,35 @@ class UploadDocumentDto {
   @IsString()
   @MinLength(2)
   title!: string;
+}
+
+class ImportCodingRowDto {
+  @IsString()
+  codeName!: string;
+
+  @IsString()
+  snippet!: string;
+
+  @IsString()
+  @IsOptional()
+  codeDescription?: string;
+
+  @IsInt()
+  @Min(0)
+  startIndex!: number;
+
+  @IsInt()
+  @Min(0)
+  endIndex!: number;
+}
+
+class ImportCodingsDto {
+  @IsString()
+  @MinLength(2)
+  title!: string;
+
+  @IsArray()
+  rows!: ImportCodingRowDto[];
 }
 
 type UploadedDocumentFile = {
@@ -108,6 +137,15 @@ export class DocumentsController {
     @UploadedFile() file?: UploadedDocumentFile
   ) {
     return this.uploadDocument(user, projectId, body, file);
+  }
+
+  @Post('import-codings')
+  async importCodings(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Body() body: ImportCodingsDto
+  ) {
+    return this.documentsService.importCodings(user.sub, projectId, body.title, body.rows);
   }
 
   @Get(':documentId')

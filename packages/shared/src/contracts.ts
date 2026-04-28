@@ -11,7 +11,7 @@ export const documentSchema = z.object({
   id: z.string(),
   projectId: z.string(),
   title: z.string(),
-  sourceType: z.enum(['TXT', 'PDF', 'DOCX', 'PASTE']),
+  sourceType: z.enum(['TXT', 'PDF', 'DOCX', 'PASTE', 'IMPORTED_CODES']),
   plainText: z.string(),
   createdAt: z.string()
 });

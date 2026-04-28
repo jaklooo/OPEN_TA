@@ -51,7 +51,7 @@ Generate Prisma client and run migrations:
 
 ```bash
 pnpm --filter @open-ta/api prisma:generate
-pnpm --filter @open-ta/api prisma:migrate
+pnpm --filter @open-ta/api prisma:migrate:local
 ```
 
 Start the API and web app:
@@ -62,7 +62,7 @@ pnpm dev
 
 Default local URLs:
 
-- Web: `http://localhost:3001`
+- Web: `http://localhost:3000`
 - API: `http://localhost:4000/api`
 - Swagger docs: `http://localhost:4000/api/docs`
 
