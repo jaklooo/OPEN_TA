@@ -32,6 +32,11 @@ class SetThemeCodesDto {
   codeIds!: string[];
 }
 
+class SetThemeCodingsDto {
+  @IsArray()
+  codingIds!: string[];
+}
+
 class SetParentThemesDto {
   @IsArray()
   parentThemeIds!: string[];
@@ -91,6 +96,16 @@ export class ThemesController {
     @Body() body: SetThemeCodesDto
   ) {
     return this.themesService.setThemeCodes(user.sub, projectId, themeId, body.codeIds ?? []);
+  }
+
+  @Post(':themeId/codings')
+  async setThemeCodings(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('themeId') themeId: string,
+    @Body() body: SetThemeCodingsDto
+  ) {
+    return this.themesService.setThemeCodings(user.sub, projectId, themeId, body.codingIds ?? []);
   }
 
   @Post(':themeId/parent-themes')

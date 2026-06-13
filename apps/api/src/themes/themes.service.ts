@@ -5,10 +5,33 @@ import { PrismaService } from '../prisma/prisma.service.js';
 export class ThemesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private readonly themePalette = [
+    '#115e59',
+    '#7c2d12',
+    '#1d4ed8',
+    '#9333ea',
+    '#be123c',
+    '#047857',
+    '#a16207',
+    '#4338ca',
+    '#0f766e',
+    '#b45309'
+  ];
+
   private readonly includeThemeRelations = {
     codeLinks: {
       include: {
         code: true
+      }
+    },
+    codingLinks: {
+      include: {
+        coding: {
+          include: {
+            code: true,
+            document: true
+          }
+        }
       }
     },
     parentThemeLinks: {
@@ -47,6 +70,7 @@ export class ThemesService {
         projectId,
         documentId,
         name,
+        color: this.getThemeColor(),
         layer
       },
       include: this.includeThemeRelations
@@ -102,23 +126,46 @@ export class ThemesService {
     return this.findOne(themeId);
   }
 
-  async setParentThemes(userId: string, projectId: string, themeId: string, parentThemeIds: string[]) {
+  async setThemeCodings(userId: string, projectId: string, themeId: string, codingIds: string[]) {
     const theme = await this.assertThemeOwnership(userId, projectId, themeId);
-    if (theme.layer <= 1) {
-      throw new BadRequestException('Layer 1 themes cannot have parent themes');
+    if (theme.layer !== 1 || !theme.documentId) {
+      throw new BadRequestException('Only document layer 1 themes can be linked to coding cards');
     }
 
-    const parentThemes = await this.prisma.theme.findMany({
+    const uniqueCodingIds = Array.from(new Set(codingIds));
+    const availableCodings = await this.prisma.coding.findMany({
       where: {
         projectId,
-        id: { in: parentThemeIds },
-        layer: theme.layer - 1,
-        ...(theme.documentId ? { documentId: theme.documentId } : {})
+        documentId: theme.documentId,
+        id: { in: uniqueCodingIds }
       },
       select: { id: true }
     });
 
-    if (parentThemes.length !== parentThemeIds.length) {
+    if (availableCodings.length !== uniqueCodingIds.length) {
+      throw new NotFoundException('One or more coding cards were not found');
+    }
+
+    await this.prisma.themeCoding.deleteMany({
+      where: { themeId }
+    });
+
+    if (uniqueCodingIds.length > 0) {
+      await this.prisma.themeCoding.createMany({
+        data: uniqueCodingIds.map((codingId) => ({ themeId, codingId }))
+      });
+    }
+
+    return this.findOne(themeId);
+  }
+
+  async setParentThemes(userId: string, projectId: string, themeId: string, parentThemeIds: string[]) {
+    const theme = await this.assertThemeOwnership(userId, projectId, themeId);
+    const uniqueParentThemeIds = Array.from(new Set(parentThemeIds));
+
+    const parentThemes = await this.findAvailableParentThemes(projectId, theme, uniqueParentThemeIds);
+
+    if (parentThemes.length !== uniqueParentThemeIds.length) {
       throw new NotFoundException('One or more parent themes were not found');
     }
 
@@ -126,13 +173,56 @@ export class ThemesService {
       where: { childThemeId: themeId }
     });
 
-    if (parentThemeIds.length > 0) {
+    if (uniqueParentThemeIds.length > 0) {
       await this.prisma.themeTheme.createMany({
-        data: parentThemeIds.map((parentThemeId) => ({ childThemeId: themeId, parentThemeId }))
+        data: uniqueParentThemeIds.map((parentThemeId) => ({ childThemeId: themeId, parentThemeId }))
       });
     }
 
     return this.findOne(themeId);
+  }
+
+  private async findAvailableParentThemes(
+    projectId: string,
+    theme: { id: string; layer: number; documentId: string | null },
+    parentThemeIds: string[]
+  ) {
+    if (theme.documentId) {
+      if (theme.layer <= 1) {
+        throw new BadRequestException('Layer 1 document themes cannot have parent themes');
+      }
+
+      return this.prisma.theme.findMany({
+        where: {
+          projectId,
+          id: { in: parentThemeIds },
+          documentId: theme.documentId,
+          layer: theme.layer - 1
+        },
+        select: { id: true }
+      });
+    }
+
+    if (theme.layer === 1) {
+      return this.prisma.theme.findMany({
+        where: {
+          projectId,
+          id: { in: parentThemeIds },
+          documentId: { not: null }
+        },
+        select: { id: true }
+      });
+    }
+
+    return this.prisma.theme.findMany({
+      where: {
+        projectId,
+        id: { in: parentThemeIds },
+        documentId: null,
+        layer: theme.layer - 1
+      },
+      select: { id: true }
+    });
   }
 
   private async findOne(themeId: string) {
@@ -140,6 +230,10 @@ export class ThemesService {
       where: { id: themeId },
       include: this.includeThemeRelations
     });
+  }
+
+  private getThemeColor() {
+    return this.themePalette[Math.floor(Math.random() * this.themePalette.length)];
   }
 
   private async assertProjectOwnership(userId: string, projectId: string) {

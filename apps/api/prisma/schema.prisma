@@ -85,6 +85,7 @@ model Coding {
   project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
   code        Code      @relation(fields: [codeId], references: [id], onDelete: Cascade)
+  themeLinks  ThemeCoding[]
 
   @@index([projectId, documentId, createdAt(sort: Desc)])
 }
@@ -96,10 +97,12 @@ model Theme {
   documentId       String?
   document         Document?    @relation(fields: [documentId], references: [id], onDelete: Cascade)
   name             String
+  color            String       @default("#115e59")
   layer            Int          @default(1)
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
   codeLinks        ThemeCode[]
+  codingLinks      ThemeCoding[]
   parentThemeLinks ThemeTheme[] @relation("ChildThemeLinks")
   childThemeLinks  ThemeTheme[] @relation("ParentThemeLinks")
 
@@ -114,6 +117,16 @@ model ThemeCode {
   code    Code    @relation(fields: [codeId], references: [id], onDelete: Cascade)
 
   @@id([themeId, codeId])
+}
+
+model ThemeCoding {
+  themeId  String
+  codingId String
+  theme    Theme   @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  coding   Coding  @relation(fields: [codingId], references: [id], onDelete: Cascade)
+
+  @@id([themeId, codingId])
+  @@index([codingId])
 }
 
 model ThemeTheme {

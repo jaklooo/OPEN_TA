@@ -23,6 +23,15 @@ interface Coding {
   code?: Code;
 }
 
+interface Theme {
+  id: string;
+  name: string;
+  layer: number;
+  documentId?: string | null;
+  codingLinks: Array<{ codingId: string }>;
+  parentThemeLinks: Array<{ parentThemeId: string }>;
+}
+
 interface ExportRow {
   document_id: number;
   document_name: string;
@@ -31,6 +40,12 @@ interface ExportRow {
   end_string: string;
   code: string;
   code_description: string;
+  'document theme': string;
+  'doc theme layer 2': string;
+  'doc theme layer 3': string;
+  'global theme': string;
+  'global theme layer 2': string;
+  'global theme layer 3': string;
 }
 
 const EXPORT_COLUMNS: Array<keyof ExportRow> = [
@@ -40,7 +55,13 @@ const EXPORT_COLUMNS: Array<keyof ExportRow> = [
   'start_string',
   'end_string',
   'code',
-  'code_description'
+  'code_description',
+  'document theme',
+  'doc theme layer 2',
+  'doc theme layer 3',
+  'global theme',
+  'global theme layer 2',
+  'global theme layer 3'
 ];
 
 const IMPORT_FIELDS = [
@@ -174,6 +195,26 @@ function buildCsv(rows: ExportRow[]) {
   const header = EXPORT_COLUMNS.join(',');
   const body = rows.map((row) => EXPORT_COLUMNS.map((column) => escapeCsvCell(row[column])).join(','));
   return `\uFEFF${[header, ...body].join('\n')}`;
+}
+
+function getThemeNames(themes: Theme[]) {
+  return themes
+    .map((theme) => theme.name)
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b))
+    .join(', ');
+}
+
+function getChildThemes(themes: Theme[], parentThemes: Theme[], layer: number, documentId?: string | null) {
+  const parentIds = new Set(parentThemes.map((theme) => theme.id));
+  if (parentIds.size === 0) return [];
+
+  return themes.filter(
+    (theme) =>
+      theme.layer === layer &&
+      (documentId === undefined || (theme.documentId ?? null) === documentId) &&
+      theme.parentThemeLinks.some((link) => parentIds.has(link.parentThemeId))
+  );
 }
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, index) => {
@@ -341,11 +382,16 @@ export default function ImportExportPage() {
   const fetchExportRows = async (): Promise<ExportRow[]> => {
     const token = localStorage.getItem('accessToken');
     const headers = { Authorization: `Bearer ${token}` };
-    const documentsRes = await fetch(apiUrl(`/projects/${projectId}/documents`), { headers });
+    const [documentsRes, themesRes] = await Promise.all([
+      fetch(apiUrl(`/projects/${projectId}/documents`), { headers }),
+      fetch(apiUrl(`/projects/${projectId}/themes`), { headers })
+    ]);
 
     if (!documentsRes.ok) throw new Error('Failed to fetch documents for export');
+    if (!themesRes.ok) throw new Error('Failed to fetch themes for export');
 
     const documents: Document[] = await documentsRes.json();
+    const themes: Theme[] = await themesRes.json();
     const rows: ExportRow[] = [];
 
     for (const [index, document] of documents.entries()) {
@@ -357,6 +403,24 @@ export default function ImportExportPage() {
 
       const codings: Coding[] = await codingsRes.json();
       for (const coding of codings) {
+        const documentLayer1Themes = themes.filter(
+          (theme) =>
+            theme.documentId === document.id &&
+            theme.layer === 1 &&
+            theme.codingLinks.some((link) => link.codingId === coding.id)
+        );
+        const documentLayer2Themes = getChildThemes(themes, documentLayer1Themes, 2, document.id);
+        const documentLayer3Themes = getChildThemes(themes, documentLayer2Themes, 3, document.id);
+        const topDocumentLayerThemes =
+          documentLayer3Themes.length > 0
+            ? documentLayer3Themes
+            : documentLayer2Themes.length > 0
+              ? documentLayer2Themes
+              : documentLayer1Themes;
+        const globalLayer1Themes = getChildThemes(themes, topDocumentLayerThemes, 1, null);
+        const globalLayer2Themes = getChildThemes(themes, globalLayer1Themes, 2, null);
+        const globalLayer3Themes = getChildThemes(themes, globalLayer2Themes, 3, null);
+
         rows.push({
           document_id: index + 1,
           document_name: document.title,
@@ -364,7 +428,13 @@ export default function ImportExportPage() {
           start_string: String(coding.startIndex),
           end_string: String(coding.endIndex),
           code: coding.code?.name ?? '',
-          code_description: coding.code?.description ?? ''
+          code_description: coding.code?.description ?? '',
+          'document theme': getThemeNames(documentLayer1Themes),
+          'doc theme layer 2': getThemeNames(documentLayer2Themes),
+          'doc theme layer 3': getThemeNames(documentLayer3Themes),
+          'global theme': getThemeNames(globalLayer1Themes),
+          'global theme layer 2': getThemeNames(globalLayer2Themes),
+          'global theme layer 3': getThemeNames(globalLayer3Themes)
         });
       }
     }
@@ -570,7 +640,8 @@ export default function ImportExportPage() {
             <strong>Coding results</strong>
             <p style={{ color: 'var(--muted)' }}>
               Columns: document_id, document_name, analyzed_text, start_string, end_string, code,
-              code_description.
+              code_description, document theme, doc theme layer 2, doc theme layer 3, global theme,
+              global theme layer 2, global theme layer 3.
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>

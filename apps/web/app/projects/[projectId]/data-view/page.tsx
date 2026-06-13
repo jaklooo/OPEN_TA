@@ -29,9 +29,11 @@ interface Coding {
 interface Theme {
   id: string;
   name: string;
+  color: string;
   layer: number;
   documentId?: string | null;
   codeLinks: Array<{ codeId: string; code: Code }>;
+  codingLinks: Array<{ codingId: string; coding: Coding }>;
   parentThemeLinks: Array<{ parentThemeId: string; parentTheme: Theme }>;
 }
 
@@ -65,6 +67,7 @@ export default function DataViewPage() {
     () => new Map(documents.map((document) => [document.id, document])),
     [documents]
   );
+  const themeById = useMemo(() => new Map(themes.map((theme) => [theme.id, theme])), [themes]);
 
   useEffect(() => {
     fetchData();
@@ -151,6 +154,43 @@ export default function DataViewPage() {
 
   const getThemeScopeLabel = (theme: Theme) =>
     theme.documentId ? documentById.get(theme.documentId)?.title ?? 'Document theme' : 'Global theme';
+
+  const getThemeCodingIds = (theme: Theme, visitedThemeIds = new Set<string>()): Set<string> => {
+    if (visitedThemeIds.has(theme.id)) return new Set();
+    visitedThemeIds.add(theme.id);
+
+    const codingIds = new Set(theme.codingLinks.map((link) => link.codingId));
+
+    for (const link of theme.parentThemeLinks) {
+      const parentTheme = themeById.get(link.parentThemeId);
+      if (!parentTheme) continue;
+      for (const codingId of getThemeCodingIds(parentTheme, visitedThemeIds)) {
+        codingIds.add(codingId);
+      }
+    }
+
+    return codingIds;
+  };
+
+  const getThemeCodeCount = (theme: Theme) => getThemeCodingIds(theme).size || theme.codeLinks.length;
+
+  const getThemeCodeNames = (theme: Theme, visitedThemeIds = new Set<string>()): string[] => {
+    if (visitedThemeIds.has(theme.id)) return [];
+    visitedThemeIds.add(theme.id);
+
+    const names = [
+      ...theme.codingLinks.map((link) => link.coding.code?.name ?? 'Code'),
+      ...theme.codeLinks.map((link) => link.code.name)
+    ];
+
+    for (const link of theme.parentThemeLinks) {
+      const parentTheme = themeById.get(link.parentThemeId);
+      if (!parentTheme) continue;
+      names.push(...getThemeCodeNames(parentTheme, visitedThemeIds));
+    }
+
+    return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+  };
 
   const handleUpdateCode = async (codeId: string) => {
     if (!editingCodeName.trim()) return;
@@ -304,18 +344,17 @@ export default function DataViewPage() {
                       <h4>Layer {layer}</h4>
                       <div className="data-code-grid">
                         {layerThemes.map((theme) => (
-                          <article key={theme.id}>
+                          <article key={theme.id} style={{ borderColor: theme.color }}>
                             <strong>{theme.name}</strong>
-                            {theme.layer === 1 ? (
-                              <small>{theme.codeLinks.length} codes</small>
-                            ) : (
-                              <small>{theme.parentThemeLinks.length} parent themes</small>
-                            )}
+                            <small>
+                              {getThemeCodeCount(theme)} codes
+                              {theme.parentThemeLinks.length > 0 && ` / ${theme.parentThemeLinks.length} grouped themes`}
+                            </small>
                             {activeScope === GLOBAL_SCOPE && <small>{getThemeScopeLabel(theme)}</small>}
-                            {theme.layer === 1 && theme.codeLinks.length > 0 && (
-                              <p>{theme.codeLinks.map((link) => link.code.name).join(', ')}</p>
+                            {getThemeCodeNames(theme).length > 0 && (
+                              <p>{getThemeCodeNames(theme).join(', ')}</p>
                             )}
-                            {theme.layer > 1 && theme.parentThemeLinks.length > 0 && (
+                            {theme.parentThemeLinks.length > 0 && (
                               <p>{theme.parentThemeLinks.map((link) => link.parentTheme.name).join(', ')}</p>
                             )}
                           </article>
