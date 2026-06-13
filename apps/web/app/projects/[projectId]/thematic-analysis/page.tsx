@@ -57,6 +57,8 @@ export default function ThematicAnalysisPage() {
   const [activeScope, setActiveScope] = useState(GLOBAL_SCOPE);
   const [activeLayer, setActiveLayer] = useState(1);
   const [newThemeName, setNewThemeName] = useState('');
+  const [isAddingExistingTheme, setIsAddingExistingTheme] = useState(false);
+  const [targetThemeId, setTargetThemeId] = useState('');
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [showUnthemedOnly, setShowUnthemedOnly] = useState(false);
   const [error, setError] = useState('');
@@ -84,13 +86,28 @@ export default function ThematicAnalysisPage() {
   useEffect(() => {
     setActiveLayer(1);
     setNewThemeName('');
+    setIsAddingExistingTheme(false);
+    setTargetThemeId('');
     setSelectedItemIds([]);
     setShowUnthemedOnly(false);
   }, [activeScope]);
 
   useEffect(() => {
     setSelectedItemIds([]);
+    setIsAddingExistingTheme(false);
+    setTargetThemeId('');
   }, [activeLayer]);
+
+  useEffect(() => {
+    if (!targetThemeId && activeLayerThemes.length > 0) {
+      setTargetThemeId(activeLayerThemes[0].id);
+      return;
+    }
+
+    if (targetThemeId && !activeLayerThemes.some((theme) => theme.id === targetThemeId)) {
+      setTargetThemeId(activeLayerThemes[0]?.id ?? '');
+    }
+  }, [activeLayerThemes, targetThemeId]);
 
   const fetchData = async () => {
     try {
@@ -294,6 +311,48 @@ export default function ThematicAnalysisPage() {
     }
   };
 
+  const handleAddToExistingTheme = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const targetTheme = activeLayerThemes.find((theme) => theme.id === targetThemeId);
+    if (!targetTheme || selectedItemIds.length === 0) return;
+
+    try {
+      setIsCreatingTheme(true);
+      setError('');
+      const token = localStorage.getItem('accessToken');
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      };
+      const isCodingTheme = activeDocumentId && activeLayer === 1;
+      const existingIds = isCodingTheme
+        ? targetTheme.codingLinks.map((link) => link.codingId)
+        : targetTheme.parentThemeLinks.map((link) => link.parentThemeId);
+      const nextIds = Array.from(new Set([...existingIds, ...selectedItemIds]));
+      const res = await fetch(
+        apiUrl(
+          isCodingTheme
+            ? `/projects/${projectId}/themes/${targetTheme.id}/codings`
+            : `/projects/${projectId}/themes/${targetTheme.id}/parent-themes`
+        ),
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(isCodingTheme ? { codingIds: nextIds } : { parentThemeIds: nextIds })
+        }
+      );
+
+      if (!res.ok) throw new Error('Failed to add cards to existing theme');
+      updateThemeInState(await res.json());
+      setSelectedItemIds([]);
+      setIsAddingExistingTheme(false);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setIsCreatingTheme(false);
+    }
+  };
+
   const handleDeleteTheme = async (themeId: string) => {
     try {
       setError('');
@@ -402,19 +461,57 @@ export default function ThematicAnalysisPage() {
           ))}
         </div>
 
-        <form className="theme-create-bar" onSubmit={handleCreateTheme}>
+        <form
+          className="theme-create-bar"
+          onSubmit={isAddingExistingTheme ? handleAddToExistingTheme : handleCreateTheme}
+        >
           <div>
             <strong>{scopeLabel} / Layer {activeLayer}</strong>
             <small>{selectedItemIds.length} selected</small>
+            <button
+              type="button"
+              className="text-action"
+              onClick={() => {
+                setIsAddingExistingTheme((value) => !value);
+                setNewThemeName('');
+              }}
+            >
+              {isAddingExistingTheme ? 'create new theme' : 'add existing theme'}
+            </button>
           </div>
-          <input
-            type="text"
-            placeholder="Theme name"
-            value={newThemeName}
-            onChange={(event) => setNewThemeName(event.target.value)}
-          />
-          <button type="submit" disabled={isCreatingTheme || selectedItemIds.length === 0 || !newThemeName.trim()}>
-            {isCreatingTheme ? 'Creating...' : '+ Theme'}
+          {isAddingExistingTheme ? (
+            <select
+              value={targetThemeId}
+              onChange={(event) => setTargetThemeId(event.target.value)}
+              disabled={activeLayerThemes.length === 0}
+            >
+              {activeLayerThemes.length === 0 ? (
+                <option value="">No themes in this layer yet</option>
+              ) : (
+                activeLayerThemes.map((theme) => (
+                  <option value={theme.id} key={theme.id}>
+                    {theme.name} ({getThemeCodeCount(theme)} codes)
+                  </option>
+                ))
+              )}
+            </select>
+          ) : (
+            <input
+              type="text"
+              placeholder="Theme name"
+              value={newThemeName}
+              onChange={(event) => setNewThemeName(event.target.value)}
+            />
+          )}
+          <button
+            type="submit"
+            disabled={
+              isCreatingTheme ||
+              selectedItemIds.length === 0 ||
+              (isAddingExistingTheme ? !targetThemeId : !newThemeName.trim())
+            }
+          >
+            {isCreatingTheme ? 'Saving...' : isAddingExistingTheme ? 'Add to Theme' : '+ Theme'}
           </button>
         </form>
 
