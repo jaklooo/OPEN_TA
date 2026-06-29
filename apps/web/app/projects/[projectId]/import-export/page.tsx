@@ -384,7 +384,7 @@ type PdfTextItem = {
   x: number;
   y: number;
   size: number;
-  font: 'regular' | 'bold';
+  font: 'regular' | 'bold' | 'italic';
 };
 
 type PdfLinkItem = {
@@ -403,21 +403,8 @@ const PDF_HEIGHT = 841.89;
 const PDF_MARGIN = 56;
 const PDF_BOTTOM = 56;
 
-function pdfHexText(value: string) {
-  const bytes: number[] = [0xfe, 0xff];
-  for (const character of value) {
-    const codePoint = character.codePointAt(0) ?? 0;
-    if (codePoint > 0xffff) {
-      const adjusted = codePoint - 0x10000;
-      const high = 0xd800 + (adjusted >> 10);
-      const low = 0xdc00 + (adjusted & 0x3ff);
-      bytes.push(high >> 8, high & 0xff, low >> 8, low & 0xff);
-    } else {
-      bytes.push(codePoint >> 8, codePoint & 0xff);
-    }
-  }
-
-  return `<${bytes.map((byte) => byte.toString(16).padStart(2, '0')).join('')}>`;
+function escapePdfText(value: string) {
+  return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
 }
 
 function estimatePdfTextWidth(value: string, size: number) {
@@ -465,11 +452,22 @@ function createReportPdf(themes: ReportTheme[]) {
     return page;
   };
 
-  const addText = (text: string, x: number, currentY: number, size: number, font: 'regular' | 'bold' = 'regular') => {
+  const addText = (
+    text: string,
+    x: number,
+    currentY: number,
+    size: number,
+    font: 'regular' | 'bold' | 'italic' = 'regular'
+  ) => {
     currentPage.texts.push({ text, x, y: currentY, size, font });
   };
 
-  const addWrappedText = (text: string, size: number, lineHeight: number, font: 'regular' | 'bold' = 'regular') => {
+  const addWrappedText = (
+    text: string,
+    size: number,
+    lineHeight: number,
+    font: 'regular' | 'bold' | 'italic' = 'regular'
+  ) => {
     const maxWidth = PDF_WIDTH - PDF_MARGIN * 2;
     for (const line of wrapPdfText(text, maxWidth, size)) {
       if (y < PDF_BOTTOM + lineHeight) addPage();
@@ -478,7 +476,9 @@ function createReportPdf(themes: ReportTheme[]) {
     }
   };
 
-  addText('Zoznam tém', PDF_MARGIN, y, 16, 'bold');
+  addText('Thematic Analysis report', PDF_MARGIN, y, 18, 'bold');
+  y -= 28;
+  addText('List of themes', PDF_MARGIN, y, 16, 'bold');
   y -= 30;
   themes.forEach((theme, index) => {
     if (y < PDF_BOTTOM + 24) addPage();
@@ -500,7 +500,7 @@ function createReportPdf(themes: ReportTheme[]) {
     y -= 28;
 
     const codes = theme.codes.map((code) => code.name).join(', ');
-    addWrappedText(`(${codes || 'No codes'})`, 11, 16);
+    addWrappedText(`(${codes || 'No codes'})`, 11, 16, 'italic');
     y -= 12;
     addWrappedText(theme.reportContent.trim() || 'No report text saved for this theme.', 12, 18);
   });
@@ -512,7 +512,9 @@ function createReportPdf(themes: ReportTheme[]) {
   }
 
   const encoder = new TextEncoder();
-  let nextObjectId = 5;
+  const pagesObjectId = 4;
+  const catalogObjectId = 5;
+  let nextObjectId = 6;
   const pageObjectIds = pages.map(() => nextObjectId++);
   const contentObjectIds = pages.map(() => nextObjectId++);
   const annotationObjectIds = pages.map((page) => page.links.map(() => nextObjectId++));
@@ -520,13 +522,14 @@ function createReportPdf(themes: ReportTheme[]) {
 
   objects.set(1, '<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman >>');
   objects.set(2, '<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold >>');
-  objects.set(4, '<< /Type /Catalog /Pages 3 0 R >>');
+  objects.set(3, '<< /Type /Font /Subtype /Type1 /BaseFont /Times-Italic >>');
+  objects.set(catalogObjectId, `<< /Type /Catalog /Pages ${pagesObjectId} 0 R >>`);
 
   pages.forEach((page, pageIndex) => {
     const stream = page.texts
       .map((item) => {
-        const fontName = item.font === 'bold' ? 'F2' : 'F1';
-        return `BT /${fontName} ${item.size} Tf ${item.x.toFixed(2)} ${item.y.toFixed(2)} Td ${pdfHexText(item.text)} Tj ET`;
+        const fontName = item.font === 'bold' ? 'F2' : item.font === 'italic' ? 'F3' : 'F1';
+        return `BT /${fontName} ${item.size} Tf ${item.x.toFixed(2)} ${item.y.toFixed(2)} Td (${escapePdfText(item.text)}) Tj ET`;
       })
       .join('\n');
     const streamBytes = encoder.encode(stream);
@@ -535,7 +538,7 @@ function createReportPdf(themes: ReportTheme[]) {
     const annots = annotationObjectIds[pageIndex];
     objects.set(
       pageObjectIds[pageIndex],
-      `<< /Type /Page /Parent 3 0 R /MediaBox [0 0 ${PDF_WIDTH} ${PDF_HEIGHT}] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents ${contentObjectIds[pageIndex]} 0 R${
+      `<< /Type /Page /Parent ${pagesObjectId} 0 R /MediaBox [0 0 ${PDF_WIDTH} ${PDF_HEIGHT}] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents ${contentObjectIds[pageIndex]} 0 R${
         annots.length > 0 ? ` /Annots [${annots.map((id) => `${id} 0 R`).join(' ')}]` : ''
       } >>`
     );
@@ -549,7 +552,7 @@ function createReportPdf(themes: ReportTheme[]) {
     });
   });
 
-  objects.set(3, `<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pages.length} >>`);
+  objects.set(pagesObjectId, `<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pages.length} >>`);
 
   let pdf = '%PDF-1.7\n%\u00e2\u00e3\u00cf\u00d3\n';
   const offsets: number[] = [0];
@@ -564,7 +567,7 @@ function createReportPdf(themes: ReportTheme[]) {
   for (let objectId = 1; objectId <= maxObjectId; objectId += 1) {
     pdf += `${String(offsets[objectId] ?? 0).padStart(10, '0')} 00000 n \n`;
   }
-  pdf += `trailer\n<< /Size ${maxObjectId + 1} /Root 4 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  pdf += `trailer\n<< /Size ${maxObjectId + 1} /Root ${catalogObjectId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
 
   return new Blob([encoder.encode(pdf)], { type: 'application/pdf' });
 }

@@ -604,6 +604,15 @@ main {
   box-shadow: 0 10px 28px rgba(31, 26, 23, 0.06);
 }
 
+.report-theme-card.saved {
+  border-color: #047857;
+  background: #ecfdf5;
+}
+
+.report-theme-card.saved small {
+  color: #047857;
+}
+
 .report-theme-card:hover,
 .report-theme-card:focus-visible {
   transform: translateY(-1px);

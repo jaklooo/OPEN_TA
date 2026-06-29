@@ -147,7 +147,7 @@ export default function ReportCraftingPage() {
               return (
                 <button
                   type="button"
-                  className="report-theme-card"
+                  className={`report-theme-card ${hasReport ? 'saved' : ''}`}
                   key={theme.id}
                   onClick={() => openTheme(theme)}
                   style={{ borderColor: theme.color }}
