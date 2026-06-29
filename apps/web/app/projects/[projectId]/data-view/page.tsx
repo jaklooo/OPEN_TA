@@ -42,10 +42,12 @@ interface DocumentWithCodings extends Document {
 }
 
 const GLOBAL_SCOPE = 'global';
+type DataViewMode = 'home' | 'documents' | 'analytics';
 
 export default function DataViewPage() {
   const params = useParams();
   const projectId = params.projectId as string;
+  const [activeView, setActiveView] = useState<DataViewMode>('home');
   const [documents, setDocuments] = useState<DocumentWithCodings[]>([]);
   const [codes, setCodes] = useState<Code[]>([]);
   const [themes, setThemes] = useState<Theme[]>([]);
@@ -259,30 +261,51 @@ export default function DataViewPage() {
         <header className="page-heading">
           <div>
             <h2>Data View</h2>
-            <p>Browse codes, coded excerpts, and themes globally or per document.</p>
+            <p>Choose a document-level view or move into project analytics.</p>
           </div>
+          {activeView !== 'home' && (
+            <button type="button" className="ghost-button" onClick={() => setActiveView('home')}>
+              Back to Data View
+            </button>
+          )}
         </header>
 
         {error && <p style={{ color: 'var(--accent-2)' }}>{error}</p>}
 
-        <div className="toolbar-row">
-          <label>
-            View
-            <select value={activeScope} onChange={(event) => setActiveScope(event.target.value)}>
-              <option value={GLOBAL_SCOPE}>Global project view</option>
-              {documents.map((document) => (
-                <option value={document.id} key={document.id}>
-                  {document.title}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        {isLoading ? (
+        {activeView === 'home' ? (
+          <section className="data-view-launch-grid">
+            <button type="button" className="data-view-launch-tile" onClick={() => setActiveView('documents')}>
+              <span>Document data view</span>
+              <small>Browse codes, coded excerpts, and themes globally or per document.</small>
+            </button>
+            <button type="button" className="data-view-launch-tile" onClick={() => setActiveView('analytics')}>
+              <span>Analytics</span>
+              <small>Open the analytical workspace for project-level outputs.</small>
+            </button>
+          </section>
+        ) : activeView === 'analytics' ? (
+          <section className="card analytics-placeholder">
+            <h3>Analytics</h3>
+            <p>Analytics will be added here next.</p>
+          </section>
+        ) : isLoading ? (
           <p>Loading data...</p>
         ) : (
           <>
+            <div className="toolbar-row">
+              <label>
+                View
+                <select value={activeScope} onChange={(event) => setActiveScope(event.target.value)}>
+                  <option value={GLOBAL_SCOPE}>Global project view</option>
+                  {documents.map((document) => (
+                    <option value={document.id} key={document.id}>
+                      {document.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
             <section className="card">
               <h3 style={{ marginTop: 0 }}>{selectedDocument ? 'Document Codes' : 'Global Codes'}</h3>
               {visibleCodeCounts.length === 0 ? (

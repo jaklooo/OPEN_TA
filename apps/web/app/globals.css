@@ -763,6 +763,54 @@ main {
   gap: 0.7rem;
 }
 
+.data-view-launch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.data-view-launch-tile {
+  display: grid;
+  min-height: 180px;
+  align-content: end;
+  gap: 0.45rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  box-shadow: 0 10px 28px rgba(31, 26, 23, 0.06);
+}
+
+.data-view-launch-tile:hover,
+.data-view-launch-tile:focus-visible {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(31, 26, 23, 0.1);
+}
+
+.data-view-launch-tile span {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.data-view-launch-tile small,
+.analytics-placeholder p {
+  color: var(--muted);
+}
+
+.analytics-placeholder {
+  display: grid;
+  min-height: 260px;
+  align-content: center;
+  text-align: center;
+}
+
+.analytics-placeholder h3 {
+  margin: 0;
+}
+
 .data-code-grid article {
   border-top: 1px solid var(--line);
   padding-top: 0.65rem;
@@ -868,6 +916,10 @@ main {
 .report-modal-actions > *,
 .theme-grid,
 .document-data-list,
+.data-view-launch-grid,
+.data-view-launch-grid > *,
+.data-view-launch-tile,
+.analytics-placeholder,
 .row-between,
 .row-between > *,
 .checkbox-list,
@@ -981,6 +1033,10 @@ main {
   }
 
   .document-row {
+    grid-template-columns: 1fr;
+  }
+
+  .data-view-launch-grid {
     grid-template-columns: 1fr;
   }
 
