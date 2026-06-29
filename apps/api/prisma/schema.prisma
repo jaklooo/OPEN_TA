@@ -26,17 +26,18 @@ model User {
 }
 
 model Project {
-  id          String      @id @default(cuid())
-  name        String
-  description String?
-  ownerId     String
-  owner       User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  documents   Document[]
-  codes       Code[]
-  codings     Coding[]
-  themes      Theme[]
+  id           String        @id @default(cuid())
+  name         String
+  description  String?
+  ownerId      String
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  documents    Document[]
+  codes        Code[]
+  codings      Coding[]
+  themes       Theme[]
+  themeReports ThemeReport[]
 
   @@index([ownerId])
 }
@@ -58,13 +59,13 @@ model Document {
 }
 
 model Code {
-  id          String    @id @default(cuid())
+  id          String      @id @default(cuid())
   projectId   String
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   name        String
   description String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
   codings     Coding[]
   themeLinks  ThemeCode[]
 
@@ -72,7 +73,7 @@ model Code {
 }
 
 model Coding {
-  id          String    @id @default(cuid())
+  id          String        @id @default(cuid())
   projectId   String
   documentId  String
   codeId      String
@@ -80,41 +81,55 @@ model Coding {
   startIndex  Int
   endIndex    Int
   description String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  code        Code      @relation(fields: [codeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document    Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  code        Code          @relation(fields: [codeId], references: [id], onDelete: Cascade)
   themeLinks  ThemeCoding[]
 
   @@index([projectId, documentId, createdAt(sort: Desc)])
 }
 
 model Theme {
-  id               String       @id @default(cuid())
+  id               String        @id @default(cuid())
   projectId        String
-  project          Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project          Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   documentId       String?
-  document         Document?    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document         Document?     @relation(fields: [documentId], references: [id], onDelete: Cascade)
   name             String
-  color            String       @default("#115e59")
-  layer            Int          @default(1)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  color            String        @default("#115e59")
+  layer            Int           @default(1)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
   codeLinks        ThemeCode[]
   codingLinks      ThemeCoding[]
-  parentThemeLinks ThemeTheme[] @relation("ChildThemeLinks")
-  childThemeLinks  ThemeTheme[] @relation("ParentThemeLinks")
+  parentThemeLinks ThemeTheme[]  @relation("ChildThemeLinks")
+  childThemeLinks  ThemeTheme[]  @relation("ParentThemeLinks")
+  report           ThemeReport?
 
   @@index([projectId, layer])
   @@index([projectId, documentId, layer])
 }
 
+model ThemeReport {
+  id        String   @id @default(cuid())
+  projectId String
+  themeId   String   @unique
+  content   String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  theme     Theme    @relation(fields: [themeId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
 model ThemeCode {
   themeId String
   codeId  String
-  theme   Theme   @relation(fields: [themeId], references: [id], onDelete: Cascade)
-  code    Code    @relation(fields: [codeId], references: [id], onDelete: Cascade)
+  theme   Theme  @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  code    Code   @relation(fields: [codeId], references: [id], onDelete: Cascade)
 
   @@id([themeId, codeId])
 }
@@ -122,8 +137,8 @@ model ThemeCode {
 model ThemeCoding {
   themeId  String
   codingId String
-  theme    Theme   @relation(fields: [themeId], references: [id], onDelete: Cascade)
-  coding   Coding  @relation(fields: [codingId], references: [id], onDelete: Cascade)
+  theme    Theme  @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  coding   Coding @relation(fields: [codingId], references: [id], onDelete: Cascade)
 
   @@id([themeId, codingId])
   @@index([codingId])

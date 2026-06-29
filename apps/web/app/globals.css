@@ -570,6 +570,143 @@ main {
   color: var(--muted);
 }
 
+.report-layer-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.report-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr));
+  gap: 0.85rem;
+}
+
+.report-theme-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 0.85rem;
+  min-height: 120px;
+  padding: 0.9rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  box-shadow: 0 10px 28px rgba(31, 26, 23, 0.06);
+}
+
+.report-theme-card:hover,
+.report-theme-card:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(31, 26, 23, 0.1);
+}
+
+.report-card-accent {
+  width: 10px;
+  min-height: 100%;
+  border-radius: 999px;
+}
+
+.report-theme-card strong {
+  display: block;
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.report-theme-card small {
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--muted);
+}
+
+.report-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.report-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  background: rgba(31, 26, 23, 0.36);
+}
+
+.report-modal-panel {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.9rem;
+  width: min(820px, 100%);
+  max-height: min(86vh, 820px);
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 26px 80px rgba(31, 26, 23, 0.24);
+}
+
+.report-modal-header,
+.report-modal-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: flex-start;
+}
+
+.report-modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.report-modal-header p,
+.report-modal-actions span {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+}
+
+.report-code-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.report-code-list span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.25rem 0.5rem;
+  background: #f7f4ec;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.report-editor-label {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.report-editor-label textarea {
+  width: 100%;
+  min-height: 320px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
 .layer-tabs button {
   border-color: var(--line);
   background: transparent;
@@ -707,6 +844,19 @@ main {
 .mapping-grid > *,
 .import-preview,
 .import-preview > *,
+.report-card-grid,
+.report-card-grid > *,
+.report-theme-card,
+.report-theme-card > *,
+.report-modal-panel,
+.report-modal-panel > *,
+.report-modal-header,
+.report-modal-header > *,
+.report-code-list,
+.report-code-list > *,
+.report-editor-label,
+.report-modal-actions,
+.report-modal-actions > *,
 .theme-grid,
 .document-data-list,
 .row-between,

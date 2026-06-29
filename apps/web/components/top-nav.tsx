@@ -13,6 +13,7 @@ export function TopNav() {
     { href: `${base}/documents`, label: 'Documents' },
     { href: `${base}/coding`, label: 'Coding' },
     { href: `${base}/thematic-analysis`, label: 'Thematic Analysis' },
+    { href: `${base}/report-crafting`, label: 'Report crafting' },
     { href: `${base}/data-view`, label: 'Data View' },
     { href: `${base}/import-export`, label: 'Import / Export' }
   ];

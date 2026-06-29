@@ -32,6 +32,18 @@ interface Theme {
   parentThemeLinks: Array<{ parentThemeId: string }>;
 }
 
+interface ReportTheme {
+  id: string;
+  name: string;
+  codes: Array<{ id: string; name: string }>;
+  reportContent: string;
+}
+
+interface ReportThemesResponse {
+  layer: number | null;
+  themes: ReportTheme[];
+}
+
 interface ExportRow {
   document_id: number;
   document_name: string;
@@ -367,6 +379,196 @@ function buildXlsx(rows: ExportRow[]) {
   });
 }
 
+type PdfTextItem = {
+  text: string;
+  x: number;
+  y: number;
+  size: number;
+  font: 'regular' | 'bold';
+};
+
+type PdfLinkItem = {
+  rect: [number, number, number, number];
+  themeIndex: number;
+  targetPageIndex: number;
+};
+
+type PdfPage = {
+  texts: PdfTextItem[];
+  links: PdfLinkItem[];
+};
+
+const PDF_WIDTH = 595.28;
+const PDF_HEIGHT = 841.89;
+const PDF_MARGIN = 56;
+const PDF_BOTTOM = 56;
+
+function pdfHexText(value: string) {
+  const bytes: number[] = [0xfe, 0xff];
+  for (const character of value) {
+    const codePoint = character.codePointAt(0) ?? 0;
+    if (codePoint > 0xffff) {
+      const adjusted = codePoint - 0x10000;
+      const high = 0xd800 + (adjusted >> 10);
+      const low = 0xdc00 + (adjusted & 0x3ff);
+      bytes.push(high >> 8, high & 0xff, low >> 8, low & 0xff);
+    } else {
+      bytes.push(codePoint >> 8, codePoint & 0xff);
+    }
+  }
+
+  return `<${bytes.map((byte) => byte.toString(16).padStart(2, '0')).join('')}>`;
+}
+
+function estimatePdfTextWidth(value: string, size: number) {
+  return value.length * size * 0.48;
+}
+
+function wrapPdfText(value: string, maxWidth: number, size: number) {
+  const paragraphs = value.split(/\n/);
+  const lines: string[] = [];
+
+  for (const paragraph of paragraphs) {
+    const words = paragraph.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      lines.push('');
+      continue;
+    }
+
+    let line = '';
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (estimatePdfTextWidth(candidate, size) <= maxWidth || !line) {
+        line = candidate;
+      } else {
+        lines.push(line);
+        line = word;
+      }
+    }
+    if (line) lines.push(line);
+  }
+
+  return lines;
+}
+
+function createReportPdf(themes: ReportTheme[]) {
+  const pages: PdfPage[] = [{ texts: [], links: [] }];
+  const chapterPageIndexes: number[] = [];
+  let currentPage = pages[0];
+  let y = PDF_HEIGHT - PDF_MARGIN;
+
+  const addPage = () => {
+    const page = { texts: [], links: [] };
+    pages.push(page);
+    currentPage = page;
+    y = PDF_HEIGHT - PDF_MARGIN;
+    return page;
+  };
+
+  const addText = (text: string, x: number, currentY: number, size: number, font: 'regular' | 'bold' = 'regular') => {
+    currentPage.texts.push({ text, x, y: currentY, size, font });
+  };
+
+  const addWrappedText = (text: string, size: number, lineHeight: number, font: 'regular' | 'bold' = 'regular') => {
+    const maxWidth = PDF_WIDTH - PDF_MARGIN * 2;
+    for (const line of wrapPdfText(text, maxWidth, size)) {
+      if (y < PDF_BOTTOM + lineHeight) addPage();
+      addText(line, PDF_MARGIN, y, size, font);
+      y -= lineHeight;
+    }
+  };
+
+  addText('Zoznam tém', PDF_MARGIN, y, 16, 'bold');
+  y -= 30;
+  themes.forEach((theme, index) => {
+    if (y < PDF_BOTTOM + 24) addPage();
+    const label = `${index + 1}. ${theme.name}`;
+    addText(label, PDF_MARGIN, y, 12, 'regular');
+    currentPage.links.push({
+      rect: [PDF_MARGIN, y - 3, PDF_MARGIN + Math.min(430, estimatePdfTextWidth(label, 12) + 8), y + 13],
+      themeIndex: index,
+      targetPageIndex: -1
+    });
+    y -= 20;
+  });
+
+  themes.forEach((theme, index) => {
+    const page = addPage();
+    chapterPageIndexes[index] = pages.length - 1;
+    const title = `${index + 1}. ${theme.name}`;
+    addText(title, (PDF_WIDTH - estimatePdfTextWidth(title, 15)) / 2, y, 15, 'bold');
+    y -= 28;
+
+    const codes = theme.codes.map((code) => code.name).join(', ');
+    addWrappedText(`(${codes || 'No codes'})`, 11, 16);
+    y -= 12;
+    addWrappedText(theme.reportContent.trim() || 'No report text saved for this theme.', 12, 18);
+  });
+
+  for (const page of pages) {
+    for (const link of page.links) {
+      link.targetPageIndex = chapterPageIndexes[link.themeIndex] ?? 0;
+    }
+  }
+
+  const encoder = new TextEncoder();
+  let nextObjectId = 5;
+  const pageObjectIds = pages.map(() => nextObjectId++);
+  const contentObjectIds = pages.map(() => nextObjectId++);
+  const annotationObjectIds = pages.map((page) => page.links.map(() => nextObjectId++));
+  const objects = new Map<number, string>();
+
+  objects.set(1, '<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman >>');
+  objects.set(2, '<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold >>');
+  objects.set(4, '<< /Type /Catalog /Pages 3 0 R >>');
+
+  pages.forEach((page, pageIndex) => {
+    const stream = page.texts
+      .map((item) => {
+        const fontName = item.font === 'bold' ? 'F2' : 'F1';
+        return `BT /${fontName} ${item.size} Tf ${item.x.toFixed(2)} ${item.y.toFixed(2)} Td ${pdfHexText(item.text)} Tj ET`;
+      })
+      .join('\n');
+    const streamBytes = encoder.encode(stream);
+    objects.set(contentObjectIds[pageIndex], `<< /Length ${streamBytes.length} >>\nstream\n${stream}\nendstream`);
+
+    const annots = annotationObjectIds[pageIndex];
+    objects.set(
+      pageObjectIds[pageIndex],
+      `<< /Type /Page /Parent 3 0 R /MediaBox [0 0 ${PDF_WIDTH} ${PDF_HEIGHT}] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents ${contentObjectIds[pageIndex]} 0 R${
+        annots.length > 0 ? ` /Annots [${annots.map((id) => `${id} 0 R`).join(' ')}]` : ''
+      } >>`
+    );
+
+    page.links.forEach((link, linkIndex) => {
+      const targetPageObjectId = pageObjectIds[link.targetPageIndex] ?? pageObjectIds[0];
+      objects.set(
+        annots[linkIndex],
+        `<< /Type /Annot /Subtype /Link /Rect [${link.rect.map((value) => value.toFixed(2)).join(' ')}] /Border [0 0 0] /A << /S /GoTo /D [${targetPageObjectId} 0 R /Fit] >> >>`
+      );
+    });
+  });
+
+  objects.set(3, `<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pages.length} >>`);
+
+  let pdf = '%PDF-1.7\n%\u00e2\u00e3\u00cf\u00d3\n';
+  const offsets: number[] = [0];
+  const sortedObjectIds = Array.from(objects.keys()).sort((a, b) => a - b);
+  for (const objectId of sortedObjectIds) {
+    offsets[objectId] = encoder.encode(pdf).length;
+    pdf += `${objectId} 0 obj\n${objects.get(objectId)}\nendobj\n`;
+  }
+  const xrefOffset = encoder.encode(pdf).length;
+  const maxObjectId = Math.max(...sortedObjectIds);
+  pdf += `xref\n0 ${maxObjectId + 1}\n0000000000 65535 f \n`;
+  for (let objectId = 1; objectId <= maxObjectId; objectId += 1) {
+    pdf += `${String(offsets[objectId] ?? 0).padStart(10, '0')} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${maxObjectId + 1} /Root 4 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return new Blob([encoder.encode(pdf)], { type: 'application/pdf' });
+}
+
 export default function ImportExportPage() {
   const params = useParams();
   const projectId = params.projectId as string;
@@ -463,6 +665,28 @@ export default function ImportExportPage() {
       setSuccess('');
       const rows = await fetchExportRows();
       downloadBlob(buildXlsx(rows), 'open-ta-codings.xlsx');
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportReportPdf = async () => {
+    try {
+      setIsExporting(true);
+      setError('');
+      setSuccess('');
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch(apiUrl(`/projects/${projectId}/reports/global-themes`), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!res.ok) throw new Error('Failed to fetch report content');
+      const data: ReportThemesResponse = await res.json();
+      if (data.themes.length === 0) throw new Error('No global themes available for report export');
+
+      downloadBlob(createReportPdf(data.themes), 'open-ta-report.pdf');
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -650,6 +874,20 @@ export default function ImportExportPage() {
             </button>
             <button type="button" onClick={handleExportXlsx} disabled={isExporting}>
               {isExporting ? 'Exporting...' : 'Export XLSX'}
+            </button>
+          </div>
+        </div>
+
+        <div className="card" style={{ display: 'grid', gap: '0.8rem' }}>
+          <div>
+            <strong>Finished report</strong>
+            <p style={{ color: 'var(--muted)' }}>
+              Export the saved report sections from the latest global theme layer as a PDF with a clickable topic list.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button type="button" onClick={handleExportReportPdf} disabled={isExporting}>
+              {isExporting ? 'Exporting...' : 'Export report PDF'}
             </button>
           </div>
         </div>

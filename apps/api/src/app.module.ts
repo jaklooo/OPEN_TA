@@ -7,6 +7,7 @@ import { DocumentsModule } from './documents/documents.module.js';
 import { CodesModule } from './codes/codes.module.js';
 import { ThemesModule } from './themes/themes.module.js';
 import { CodingsModule } from './codings/codings.module.js';
+import { ReportsModule } from './reports/reports.module.js';
 import { PrismaService } from './prisma/prisma.service.js';
 
 @Global()
@@ -28,7 +29,8 @@ class GlobalModule {}
     DocumentsModule,
     CodesModule,
     ThemesModule,
-    CodingsModule
+    CodingsModule,
+    ReportsModule
   ],
   controllers: [HealthController]
 })
