@@ -36,6 +36,7 @@ interface ReportTheme {
   id: string;
   name: string;
   codes: Array<{ id: string; name: string }>;
+  sourceCount?: number;
   reportContent: string;
 }
 
@@ -379,6 +380,134 @@ function buildXlsx(rows: ExportRow[]) {
   });
 }
 
+type DocxParagraphStyle = 'Title' | 'Heading1' | 'Heading2';
+
+function createDocxParagraph(
+  text: string,
+  options: { style?: DocxParagraphStyle; italic?: boolean; bold?: boolean } = {}
+) {
+  const paragraphProperties = options.style ? `<w:pPr><w:pStyle w:val="${options.style}"/></w:pPr>` : '';
+  const runProperties = options.italic || options.bold ? `<w:rPr>${options.bold ? '<w:b/>' : ''}${options.italic ? '<w:i/>' : ''}</w:rPr>` : '';
+
+  return `<w:p>${paragraphProperties}<w:r>${runProperties}<w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r></w:p>`;
+}
+
+function createDocxPageBreak() {
+  return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+}
+
+function createDocxTextBlock(text: string) {
+  const lines = text.trim() ? text.trim().split(/\n/) : ['No report text saved for this theme.'];
+  return lines
+    .map((line) => (line.trim() ? createDocxParagraph(line.trim()) : '<w:p/>'))
+    .join('');
+}
+
+function createReportDocx(themes: ReportTheme[]) {
+  const body: string[] = [
+    createDocxParagraph('Thematic Analysis report', { style: 'Title' }),
+    createDocxParagraph('List of themes', { style: 'Heading1' })
+  ];
+
+  themes.forEach((theme, index) => {
+    body.push(createDocxParagraph(`${index + 1}. ${theme.name}`));
+  });
+
+  themes.forEach((theme, index) => {
+    const codes = theme.codes.map((code) => code.name).join(', ') || 'No codes';
+    const meta = [`Codes: ${codes}`];
+    if (typeof theme.sourceCount === 'number') meta.push(`Sources: ${theme.sourceCount}`);
+
+    body.push(
+      createDocxPageBreak(),
+      createDocxParagraph(`${index + 1}. ${theme.name}`, { style: 'Heading1' }),
+      createDocxParagraph(meta.join(' / '), { italic: true }),
+      createDocxTextBlock(theme.reportContent)
+    );
+  });
+
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${body.join('\n')}
+    <w:sectPr>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`;
+
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
+    <w:name w:val="Normal"/>
+    <w:qFormat/>
+    <w:pPr><w:spacing w:after="160" w:line="276" w:lineRule="auto"/></w:pPr>
+    <w:rPr><w:sz w:val="24"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Title">
+    <w:name w:val="Title"/>
+    <w:basedOn w:val="Normal"/>
+    <w:qFormat/>
+    <w:pPr><w:spacing w:after="320"/></w:pPr>
+    <w:rPr><w:b/><w:sz w:val="36"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1">
+    <w:name w:val="heading 1"/>
+    <w:basedOn w:val="Normal"/>
+    <w:qFormat/>
+    <w:pPr><w:spacing w:before="240" w:after="160"/></w:pPr>
+    <w:rPr><w:b/><w:sz w:val="30"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading2">
+    <w:name w:val="heading 2"/>
+    <w:basedOn w:val="Normal"/>
+    <w:qFormat/>
+    <w:pPr><w:spacing w:before="200" w:after="120"/></w:pPr>
+    <w:rPr><w:b/><w:sz w:val="26"/></w:rPr>
+  </w:style>
+</w:styles>`;
+
+  const files = [
+    {
+      name: '[Content_Types].xml',
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>`
+    },
+    {
+      name: '_rels/.rels',
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`
+    },
+    {
+      name: 'word/_rels/document.xml.rels',
+      content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`
+    },
+    {
+      name: 'word/document.xml',
+      content: documentXml
+    },
+    {
+      name: 'word/styles.xml',
+      content: stylesXml
+    }
+  ];
+
+  return new Blob([createZip(files)], {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  });
+}
+
 type PdfTextItem = {
   text: string;
   x: number;
@@ -697,6 +826,28 @@ export default function ImportExportPage() {
     }
   };
 
+  const handleExportReportDocx = async () => {
+    try {
+      setIsExporting(true);
+      setError('');
+      setSuccess('');
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch(apiUrl(`/projects/${projectId}/reports/global-themes`), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!res.ok) throw new Error('Failed to fetch report content');
+      const data: ReportThemesResponse = await res.json();
+      if (data.themes.length === 0) throw new Error('No global themes available for report export');
+
+      downloadBlob(createReportDocx(data.themes), 'open-ta-report.docx');
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -885,12 +1036,15 @@ export default function ImportExportPage() {
           <div>
             <strong>Finished report</strong>
             <p style={{ color: 'var(--muted)' }}>
-              Export the saved report sections from the latest global theme layer as a PDF with a clickable topic list.
+              Export the saved report sections from the latest global theme layer as a PDF or Word document.
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button type="button" onClick={handleExportReportPdf} disabled={isExporting}>
               {isExporting ? 'Exporting...' : 'Export report PDF'}
+            </button>
+            <button type="button" onClick={handleExportReportDocx} disabled={isExporting}>
+              {isExporting ? 'Exporting...' : 'Export report DOCX'}
             </button>
           </div>
         </div>
