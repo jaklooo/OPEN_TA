@@ -10,6 +10,11 @@ interface ReportCode {
   name: string;
 }
 
+interface ReportSource {
+  id: string;
+  title: string;
+}
+
 interface ReportTheme {
   id: string;
   name: string;
@@ -17,6 +22,7 @@ interface ReportTheme {
   layer: number;
   codes: ReportCode[];
   sourceCount: number;
+  sources: ReportSource[];
   reportContent: string;
   reportUpdatedAt?: string | null;
 }
@@ -35,6 +41,7 @@ export default function ReportCraftingPage() {
   const [draft, setDraft] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [showSources, setShowSources] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -50,6 +57,7 @@ export default function ReportCraftingPage() {
   useEffect(() => {
     if (selectedTheme) {
       setDraft(selectedTheme.reportContent);
+      setShowSources(false);
       setSuccess('');
     }
   }, [selectedTheme]);
@@ -81,6 +89,7 @@ export default function ReportCraftingPage() {
   const closeTheme = () => {
     setSelectedThemeId('');
     setDraft('');
+    setShowSources(false);
     setSuccess('');
   };
 
@@ -175,14 +184,29 @@ export default function ReportCraftingPage() {
             <header className="report-modal-header">
               <div>
                 <h3 id="report-modal-title">{selectedTheme.name}</h3>
-                <p>
-                  {selectedTheme.codes.length} codes in this theme / from {selectedTheme.sourceCount} sources
-                </p>
+                <div className="report-source-summary">
+                  <span>
+                    {selectedTheme.codes.length} codes in this theme / from {selectedTheme.sourceCount} sources
+                  </span>
+                  {selectedTheme.sources.length > 0 && (
+                    <button type="button" className="link-button" onClick={() => setShowSources((value) => !value)}>
+                      {showSources ? 'Hide sources' : 'Show sources'}
+                    </button>
+                  )}
+                </div>
               </div>
               <button type="button" className="ghost-button" onClick={closeTheme}>
                 Close
               </button>
             </header>
+
+            {showSources && (
+              <div className="report-source-list">
+                {selectedTheme.sources.map((source) => (
+                  <span key={source.id}>{source.title}</span>
+                ))}
+              </div>
+            )}
 
             <div className="report-code-list">
               {selectedTheme.codes.length === 0 ? (

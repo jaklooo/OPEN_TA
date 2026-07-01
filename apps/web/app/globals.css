@@ -278,6 +278,24 @@ main {
   color: var(--ink);
 }
 
+.link-button {
+  min-height: auto;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.link-button:hover,
+.link-button:focus-visible {
+  color: var(--accent-2);
+}
+
 .mobile-coding-sheet {
   display: none;
 }
@@ -683,10 +701,36 @@ main {
   font-size: 1.25rem;
 }
 
-.report-modal-header p,
+.report-source-summary,
 .report-modal-actions span {
   margin: 0.25rem 0 0;
   color: var(--muted);
+}
+
+.report-source-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+  align-items: center;
+}
+
+.report-source-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
+.report-source-list span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.25rem 0.5rem;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .report-code-list {

@@ -8,8 +8,20 @@ type ReportTheme = {
   name: string;
   color: string;
   layer: number;
-  codeLinks: Array<{ code: { id: string; name: string; codings: Array<{ documentId: string }> } }>;
-  codingLinks: Array<{ coding: { documentId: string; code: { id: string; name: string } } }>;
+  codeLinks: Array<{
+    code: {
+      id: string;
+      name: string;
+      codings: Array<{ documentId: string; document: { id: string; title: string } }>;
+    };
+  }>;
+  codingLinks: Array<{
+    coding: {
+      documentId: string;
+      document: { id: string; title: string };
+      code: { id: string; name: string };
+    };
+  }>;
   parentThemeLinks: Array<{ parentThemeId: string }>;
   report: { content: string; updatedAt: Date } | null;
 };
@@ -31,7 +43,15 @@ export class ReportsService {
                 id: true,
                 name: true,
                 codings: {
-                  select: { documentId: true }
+                  select: {
+                    documentId: true,
+                    document: {
+                      select: {
+                        id: true,
+                        title: true
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -41,6 +61,12 @@ export class ReportsService {
           include: {
             coding: {
               include: {
+                document: {
+                  select: {
+                    id: true,
+                    title: true
+                  }
+                },
                 code: {
                   select: { id: true, name: true }
                 }
@@ -81,6 +107,7 @@ export class ReportsService {
                   layer: theme.layer,
                   codes: stats.codes,
                   sourceCount: stats.sourceCount,
+                  sources: stats.sources,
                   reportContent: theme.report?.content ?? '',
                   reportUpdatedAt: theme.report?.updatedAt ?? null
                 };
@@ -124,21 +151,25 @@ export class ReportsService {
     theme: ReportTheme,
     themeById: Map<string, ReportTheme>,
     visitedThemeIds = new Set<string>()
-  ): { codes: Array<{ id: string; name: string }>; sourceCount: number; sourceIds: string[] } {
-    if (visitedThemeIds.has(theme.id)) return { codes: [], sourceCount: 0, sourceIds: [] };
+  ): {
+    codes: Array<{ id: string; name: string }>;
+    sourceCount: number;
+    sources: Array<{ id: string; title: string }>;
+  } {
+    if (visitedThemeIds.has(theme.id)) return { codes: [], sourceCount: 0, sources: [] };
     visitedThemeIds.add(theme.id);
 
     const codeById = new Map<string, string>();
-    const sourceIds = new Set<string>();
+    const sourceById = new Map<string, string>();
     for (const link of theme.codeLinks) {
       codeById.set(link.code.id, link.code.name);
       for (const coding of link.code.codings) {
-        sourceIds.add(coding.documentId);
+        sourceById.set(coding.documentId, coding.document.title);
       }
     }
     for (const link of theme.codingLinks) {
       codeById.set(link.coding.code.id, link.coding.code.name);
-      sourceIds.add(link.coding.documentId);
+      sourceById.set(link.coding.documentId, link.coding.document.title);
     }
     for (const link of theme.parentThemeLinks) {
       const parentTheme = themeById.get(link.parentThemeId);
@@ -147,15 +178,19 @@ export class ReportsService {
       for (const code of parentStats.codes) {
         codeById.set(code.id, code.name);
       }
-      for (const sourceId of parentStats.sourceIds) {
-        sourceIds.add(sourceId);
+      for (const source of parentStats.sources) {
+        sourceById.set(source.id, source.title);
       }
     }
 
+    const sources = Array.from(sourceById, ([id, title]) => ({ id, title })).sort((a, b) =>
+      a.title.localeCompare(b.title)
+    );
+
     return {
       codes: Array.from(codeById, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
-      sourceCount: sourceIds.size,
-      sourceIds: Array.from(sourceIds)
+      sourceCount: sources.length,
+      sources
     };
   }
 
