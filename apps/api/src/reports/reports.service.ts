@@ -8,8 +8,8 @@ type ReportTheme = {
   name: string;
   color: string;
   layer: number;
-  codeLinks: Array<{ code: { id: string; name: string } }>;
-  codingLinks: Array<{ coding: { code: { id: string; name: string } } }>;
+  codeLinks: Array<{ code: { id: string; name: string; codings: Array<{ documentId: string }> } }>;
+  codingLinks: Array<{ coding: { documentId: string; code: { id: string; name: string } } }>;
   parentThemeLinks: Array<{ parentThemeId: string }>;
   report: { content: string; updatedAt: Date } | null;
 };
@@ -27,7 +27,13 @@ export class ReportsService {
         codeLinks: {
           include: {
             code: {
-              select: { id: true, name: true }
+              select: {
+                id: true,
+                name: true,
+                codings: {
+                  select: { documentId: true }
+                }
+              }
             }
           }
         },
@@ -65,15 +71,20 @@ export class ReportsService {
           : globalThemes
               .filter((theme) => theme.layer === latestGlobalLayer)
               .sort((a, b) => a.name.localeCompare(b.name))
-              .map((theme) => ({
-                id: theme.id,
-                name: theme.name,
-                color: theme.color,
-                layer: theme.layer,
-                codes: this.collectCodes(theme as ReportTheme, themeById),
-                reportContent: theme.report?.content ?? '',
-                reportUpdatedAt: theme.report?.updatedAt ?? null
-              }))
+              .map((theme) => {
+                const stats = this.collectThemeStats(theme as ReportTheme, themeById);
+
+                return {
+                  id: theme.id,
+                  name: theme.name,
+                  color: theme.color,
+                  layer: theme.layer,
+                  codes: stats.codes,
+                  sourceCount: stats.sourceCount,
+                  reportContent: theme.report?.content ?? '',
+                  reportUpdatedAt: theme.report?.updatedAt ?? null
+                };
+              })
     };
   }
 
@@ -109,26 +120,43 @@ export class ReportsService {
     });
   }
 
-  private collectCodes(theme: ReportTheme, themeById: Map<string, ReportTheme>, visitedThemeIds = new Set<string>()) {
-    if (visitedThemeIds.has(theme.id)) return [];
+  private collectThemeStats(
+    theme: ReportTheme,
+    themeById: Map<string, ReportTheme>,
+    visitedThemeIds = new Set<string>()
+  ): { codes: Array<{ id: string; name: string }>; sourceCount: number; sourceIds: string[] } {
+    if (visitedThemeIds.has(theme.id)) return { codes: [], sourceCount: 0, sourceIds: [] };
     visitedThemeIds.add(theme.id);
 
     const codeById = new Map<string, string>();
+    const sourceIds = new Set<string>();
     for (const link of theme.codeLinks) {
       codeById.set(link.code.id, link.code.name);
+      for (const coding of link.code.codings) {
+        sourceIds.add(coding.documentId);
+      }
     }
     for (const link of theme.codingLinks) {
       codeById.set(link.coding.code.id, link.coding.code.name);
+      sourceIds.add(link.coding.documentId);
     }
     for (const link of theme.parentThemeLinks) {
       const parentTheme = themeById.get(link.parentThemeId);
       if (!parentTheme) continue;
-      for (const code of this.collectCodes(parentTheme, themeById, visitedThemeIds)) {
+      const parentStats = this.collectThemeStats(parentTheme, themeById, visitedThemeIds);
+      for (const code of parentStats.codes) {
         codeById.set(code.id, code.name);
+      }
+      for (const sourceId of parentStats.sourceIds) {
+        sourceIds.add(sourceId);
       }
     }
 
-    return Array.from(codeById, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    return {
+      codes: Array.from(codeById, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
+      sourceCount: sourceIds.size,
+      sourceIds: Array.from(sourceIds)
+    };
   }
 
   private async assertProjectOwnership(userId: string, projectId: string) {

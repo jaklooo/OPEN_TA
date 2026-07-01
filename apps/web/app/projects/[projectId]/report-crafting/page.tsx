@@ -16,6 +16,7 @@ interface ReportTheme {
   color: string;
   layer: number;
   codes: ReportCode[];
+  sourceCount: number;
   reportContent: string;
   reportUpdatedAt?: string | null;
 }
@@ -156,7 +157,8 @@ export default function ReportCraftingPage() {
                   <span>
                     <strong>{theme.name}</strong>
                     <small>
-                      {theme.codes.length} codes / {hasReport ? 'report saved' : 'empty report'}
+                      {theme.codes.length} codes / {theme.sourceCount} sources /{' '}
+                      {hasReport ? 'report saved' : 'empty report'}
                     </small>
                   </span>
                 </button>
@@ -173,7 +175,9 @@ export default function ReportCraftingPage() {
             <header className="report-modal-header">
               <div>
                 <h3 id="report-modal-title">{selectedTheme.name}</h3>
-                <p>{selectedTheme.codes.length} codes in this theme</p>
+                <p>
+                  {selectedTheme.codes.length} codes in this theme / from {selectedTheme.sourceCount} sources
+                </p>
               </div>
               <button type="button" className="ghost-button" onClick={closeTheme}>
                 Close
