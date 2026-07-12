@@ -19,6 +19,7 @@ interface Code {
 
 interface Coding {
   id: string;
+  documentId?: string;
   codeId: string;
   snippet: string;
   startIndex: number;
@@ -43,6 +44,7 @@ interface DocumentWithCodings extends Document {
 
 const GLOBAL_SCOPE = 'global';
 type DataViewMode = 'home' | 'documents' | 'analytics';
+type AnalyticsView = 'home' | 'summary-table';
 
 export default function DataViewPage() {
   const params = useParams();
@@ -51,6 +53,7 @@ export default function DataViewPage() {
   const [documents, setDocuments] = useState<DocumentWithCodings[]>([]);
   const [codes, setCodes] = useState<Code[]>([]);
   const [themes, setThemes] = useState<Theme[]>([]);
+  const [activeAnalyticsView, setActiveAnalyticsView] = useState<AnalyticsView>('home');
   const [activeScope, setActiveScope] = useState(GLOBAL_SCOPE);
   const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
   const [editingCodeName, setEditingCodeName] = useState('');
@@ -70,6 +73,15 @@ export default function DataViewPage() {
     [documents]
   );
   const themeById = useMemo(() => new Map(themes.map((theme) => [theme.id, theme])), [themes]);
+  const codingDocumentById = useMemo(() => {
+    const lookup = new Map<string, string>();
+    for (const document of documents) {
+      for (const coding of document.codings) {
+        lookup.set(coding.id, coding.documentId ?? document.id);
+      }
+    }
+    return lookup;
+  }, [documents]);
 
   useEffect(() => {
     fetchData();
@@ -175,6 +187,63 @@ export default function DataViewPage() {
   };
 
   const getThemeCodeCount = (theme: Theme) => getThemeCodingIds(theme).size || theme.codeLinks.length;
+
+  const getThemeCodeIds = (theme: Theme, visitedThemeIds = new Set<string>()): Set<string> => {
+    if (visitedThemeIds.has(theme.id)) return new Set();
+    visitedThemeIds.add(theme.id);
+
+    const codeIds = new Set([
+      ...theme.codingLinks.map((link) => link.coding.codeId),
+      ...theme.codeLinks.map((link) => link.codeId)
+    ]);
+
+    for (const link of theme.parentThemeLinks) {
+      const parentTheme = themeById.get(link.parentThemeId);
+      if (!parentTheme) continue;
+      for (const codeId of getThemeCodeIds(parentTheme, visitedThemeIds)) {
+        codeIds.add(codeId);
+      }
+    }
+
+    return codeIds;
+  };
+
+  const summaryRows = useMemo(() => {
+    const globalThemes = themes.filter((theme) => !theme.documentId);
+    const latestGlobalLayer =
+      globalThemes.length > 0 ? Math.max(...globalThemes.map((theme) => theme.layer)) : null;
+
+    if (latestGlobalLayer === null) return [];
+
+    return globalThemes
+      .filter((theme) => theme.layer === latestGlobalLayer)
+      .map((theme) => {
+        const codingIds = getThemeCodingIds(theme);
+        const documentIds = new Set<string>();
+
+        for (const codingId of codingIds) {
+          const documentId = codingDocumentById.get(codingId);
+          if (documentId) documentIds.add(documentId);
+        }
+
+        if (codingIds.size === 0) {
+          const codeIds = getThemeCodeIds(theme);
+          for (const document of documents) {
+            if (document.codings.some((coding) => codeIds.has(coding.codeId))) {
+              documentIds.add(document.id);
+            }
+          }
+        }
+
+        return {
+          themeId: theme.id,
+          theme: theme.name,
+          codes: codingIds.size || getThemeCodeIds(theme).size,
+          docs: documentIds.size
+        };
+      })
+      .sort((a, b) => b.codes - a.codes || b.docs - a.docs);
+  }, [codingDocumentById, documents, themes, themeById]);
 
   const getThemeCodeNames = (theme: Theme, visitedThemeIds = new Set<string>()): string[] => {
     if (visitedThemeIds.has(theme.id)) return [];
@@ -284,10 +353,59 @@ export default function DataViewPage() {
             </button>
           </section>
         ) : activeView === 'analytics' ? (
-          <section className="card analytics-placeholder">
-            <h3>Analytics</h3>
-            <p>Analytics will be added here next.</p>
-          </section>
+          isLoading ? (
+            <p>Loading analytics...</p>
+          ) : activeAnalyticsView === 'home' ? (
+            <section className="data-view-launch-grid">
+              <button
+                type="button"
+                className="data-view-launch-tile"
+                onClick={() => setActiveAnalyticsView('summary-table')}
+              >
+                <span>Summary table</span>
+                <small>Review the latest global theme layer by total codes and contributing documents.</small>
+              </button>
+            </section>
+          ) : (
+            <section className="card analytics-table-card">
+              <div className="row-between">
+                <div>
+                  <h3>Summary table</h3>
+                  <p>Latest global themes ordered by total codes.</p>
+                </div>
+                <button type="button" className="ghost-button" onClick={() => setActiveAnalyticsView('home')}>
+                  Back to Analytics
+                </button>
+              </div>
+
+              {summaryRows.length === 0 ? (
+                <p style={{ color: 'var(--muted)' }}>No global themes available yet.</p>
+              ) : (
+                <div className="summary-table-wrap">
+                  <table className="summary-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Theme</th>
+                        <th>Codes</th>
+                        <th>Docs</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {summaryRows.map((row, index) => (
+                        <tr key={row.themeId}>
+                          <td>{index + 1}</td>
+                          <td>{row.theme}</td>
+                          <td>{row.codes}</td>
+                          <td>{row.docs}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )
         ) : isLoading ? (
           <p>Loading data...</p>
         ) : (

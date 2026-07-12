@@ -855,6 +855,60 @@ main {
   margin: 0;
 }
 
+.analytics-table-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.analytics-table-card h3 {
+  margin: 0;
+}
+
+.analytics-table-card p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+}
+
+.summary-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.summary-table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.summary-table th,
+.summary-table td {
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.summary-table th {
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--surface) 76%, var(--bg));
+}
+
+.summary-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.summary-table td:first-child,
+.summary-table td:nth-child(3),
+.summary-table td:nth-child(4) {
+  width: 5.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .data-code-grid article {
   border-top: 1px solid var(--line);
   padding-top: 0.65rem;
@@ -964,6 +1018,8 @@ main {
 .data-view-launch-grid > *,
 .data-view-launch-tile,
 .analytics-placeholder,
+.analytics-table-card,
+.summary-table-wrap,
 .row-between,
 .row-between > *,
 .checkbox-list,
