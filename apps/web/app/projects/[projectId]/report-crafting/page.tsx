@@ -21,6 +21,7 @@ interface ReportTheme {
   color: string;
   layer: number;
   codes: ReportCode[];
+  totalCodeCount: number;
   sourceCount: number;
   sources: ReportSource[];
   reportContent: string;
@@ -166,7 +167,7 @@ export default function ReportCraftingPage() {
                   <span>
                     <strong>{theme.name}</strong>
                     <small>
-                      {theme.codes.length} codes / {theme.sourceCount} sources /{' '}
+                      {theme.totalCodeCount} codes / {theme.sourceCount} sources /{' '}
                       {hasReport ? 'report saved' : 'empty report'}
                     </small>
                   </span>
@@ -186,7 +187,7 @@ export default function ReportCraftingPage() {
                 <h3 id="report-modal-title">{selectedTheme.name}</h3>
                 <div className="report-source-summary">
                   <span>
-                    {selectedTheme.codes.length} codes in this theme / from {selectedTheme.sourceCount} sources
+                    {selectedTheme.totalCodeCount} codes in this theme / from {selectedTheme.sourceCount} sources
                   </span>
                   {selectedTheme.sources.length > 0 && (
                     <button type="button" className="link-button" onClick={() => setShowSources((value) => !value)}>

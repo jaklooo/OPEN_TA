@@ -12,11 +12,12 @@ type ReportTheme = {
     code: {
       id: string;
       name: string;
-      codings: Array<{ documentId: string; document: { id: string; title: string } }>;
+      codings: Array<{ id: string; documentId: string; document: { id: string; title: string } }>;
     };
   }>;
   codingLinks: Array<{
     coding: {
+      id: string;
       documentId: string;
       document: { id: string; title: string };
       code: { id: string; name: string };
@@ -44,6 +45,7 @@ export class ReportsService {
                 name: true,
                 codings: {
                   select: {
+                    id: true,
                     documentId: true,
                     document: {
                       select: {
@@ -106,6 +108,7 @@ export class ReportsService {
                   color: theme.color,
                   layer: theme.layer,
                   codes: stats.codes,
+                  totalCodeCount: stats.totalCodeCount,
                   sourceCount: stats.sourceCount,
                   sources: stats.sources,
                   reportContent: theme.report?.content ?? '',
@@ -153,21 +156,28 @@ export class ReportsService {
     visitedThemeIds = new Set<string>()
   ): {
     codes: Array<{ id: string; name: string }>;
+    totalCodeCount: number;
     sourceCount: number;
     sources: Array<{ id: string; title: string }>;
+    codingIds: Set<string>;
   } {
-    if (visitedThemeIds.has(theme.id)) return { codes: [], sourceCount: 0, sources: [] };
+    if (visitedThemeIds.has(theme.id)) {
+      return { codes: [], totalCodeCount: 0, sourceCount: 0, sources: [], codingIds: new Set<string>() };
+    }
     visitedThemeIds.add(theme.id);
 
     const codeById = new Map<string, string>();
+    const codingIds = new Set<string>();
     const sourceById = new Map<string, string>();
     for (const link of theme.codeLinks) {
       codeById.set(link.code.id, link.code.name);
       for (const coding of link.code.codings) {
+        codingIds.add(coding.id);
         sourceById.set(coding.documentId, coding.document.title);
       }
     }
     for (const link of theme.codingLinks) {
+      codingIds.add(link.coding.id);
       codeById.set(link.coding.code.id, link.coding.code.name);
       sourceById.set(link.coding.documentId, link.coding.document.title);
     }
@@ -177,6 +187,9 @@ export class ReportsService {
       const parentStats = this.collectThemeStats(parentTheme, themeById, visitedThemeIds);
       for (const code of parentStats.codes) {
         codeById.set(code.id, code.name);
+      }
+      for (const codingId of parentStats.codingIds) {
+        codingIds.add(codingId);
       }
       for (const source of parentStats.sources) {
         sourceById.set(source.id, source.title);
@@ -189,8 +202,10 @@ export class ReportsService {
 
     return {
       codes: Array.from(codeById, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
+      totalCodeCount: codingIds.size,
       sourceCount: sources.length,
-      sources
+      sources,
+      codingIds
     };
   }
 
