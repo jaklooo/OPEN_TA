@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { TopNav } from '@/components/top-nav';
 import { apiUrl } from '@/lib/api';
@@ -42,6 +43,34 @@ interface DocumentWithCodings extends Document {
   codings: Coding[];
 }
 
+interface ReportCode {
+  id: string;
+  name: string;
+}
+
+interface ReportSource {
+  id: string;
+  title: string;
+}
+
+interface ReportTheme {
+  id: string;
+  name: string;
+  color: string;
+  layer: number;
+  codes: ReportCode[];
+  totalCodeCount: number;
+  sourceCount: number;
+  sources: ReportSource[];
+  reportContent: string;
+  reportUpdatedAt?: string | null;
+}
+
+interface ReportThemeResponse {
+  layer: number | null;
+  themes: ReportTheme[];
+}
+
 const GLOBAL_SCOPE = 'global';
 type DataViewMode = 'home' | 'documents' | 'analytics';
 type AnalyticsView = 'home' | 'summary-table';
@@ -53,7 +82,9 @@ export default function DataViewPage() {
   const [documents, setDocuments] = useState<DocumentWithCodings[]>([]);
   const [codes, setCodes] = useState<Code[]>([]);
   const [themes, setThemes] = useState<Theme[]>([]);
+  const [reportThemes, setReportThemes] = useState<ReportTheme[]>([]);
   const [activeAnalyticsView, setActiveAnalyticsView] = useState<AnalyticsView>('home');
+  const [selectedSummaryThemeId, setSelectedSummaryThemeId] = useState('');
   const [activeScope, setActiveScope] = useState(GLOBAL_SCOPE);
   const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
   const [editingCodeName, setEditingCodeName] = useState('');
@@ -73,16 +104,10 @@ export default function DataViewPage() {
     [documents]
   );
   const themeById = useMemo(() => new Map(themes.map((theme) => [theme.id, theme])), [themes]);
-  const codingDocumentById = useMemo(() => {
-    const lookup = new Map<string, string>();
-    for (const document of documents) {
-      for (const coding of document.codings) {
-        lookup.set(coding.id, coding.documentId ?? document.id);
-      }
-    }
-    return lookup;
-  }, [documents]);
-
+  const selectedSummaryTheme = useMemo(
+    () => reportThemes.find((theme) => theme.id === selectedSummaryThemeId) ?? null,
+    [reportThemes, selectedSummaryThemeId]
+  );
   useEffect(() => {
     fetchData();
   }, [projectId]);
@@ -94,20 +119,28 @@ export default function DataViewPage() {
       const token = localStorage.getItem('accessToken');
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [documentsRes, codesRes, themesRes] = await Promise.all([
+      const [documentsRes, codesRes, themesRes, reportThemesRes] = await Promise.all([
         fetch(apiUrl(`/projects/${projectId}/documents`), { headers }),
         fetch(apiUrl(`/projects/${projectId}/codes`), { headers }),
-        fetch(apiUrl(`/projects/${projectId}/themes`), { headers })
+        fetch(apiUrl(`/projects/${projectId}/themes`), { headers }),
+        fetch(apiUrl(`/projects/${projectId}/reports/global-themes`), { headers })
       ]);
 
       if (!documentsRes.ok) throw new Error('Failed to fetch documents');
       if (!codesRes.ok) throw new Error('Failed to fetch codes');
       if (!themesRes.ok) throw new Error('Failed to fetch themes');
+      if (!reportThemesRes.ok) throw new Error('Failed to fetch report themes');
 
-      const [documentsData, codesData, themesData]: [Document[], Code[], Theme[]] = await Promise.all([
+      const [documentsData, codesData, themesData, reportThemesData]: [
+        Document[],
+        Code[],
+        Theme[],
+        ReportThemeResponse
+      ] = await Promise.all([
         documentsRes.json(),
         codesRes.json(),
-        themesRes.json()
+        themesRes.json(),
+        reportThemesRes.json()
       ]);
 
       const documentsWithCodings = await Promise.all(
@@ -124,6 +157,7 @@ export default function DataViewPage() {
       setDocuments(documentsWithCodings);
       setCodes(codesData);
       setThemes(themesData);
+      setReportThemes(reportThemesData.themes);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -188,62 +222,25 @@ export default function DataViewPage() {
 
   const getThemeCodeCount = (theme: Theme) => getThemeCodingIds(theme).size || theme.codeLinks.length;
 
-  const getThemeCodeIds = (theme: Theme, visitedThemeIds = new Set<string>()): Set<string> => {
-    if (visitedThemeIds.has(theme.id)) return new Set();
-    visitedThemeIds.add(theme.id);
+  const summaryRows = useMemo(() => {
+    return reportThemes
+      .map((theme) => ({
+        themeId: theme.id,
+        theme: theme.name,
+        codes: theme.totalCodeCount || theme.codes.length,
+        docs: theme.sourceCount,
+        hasReport: theme.reportContent.trim().length > 0
+      }))
+      .sort((a, b) => b.codes - a.codes || b.docs - a.docs);
+  }, [reportThemes]);
 
-    const codeIds = new Set([
-      ...theme.codingLinks.map((link) => link.coding.codeId),
-      ...theme.codeLinks.map((link) => link.codeId)
-    ]);
-
-    for (const link of theme.parentThemeLinks) {
-      const parentTheme = themeById.get(link.parentThemeId);
-      if (!parentTheme) continue;
-      for (const codeId of getThemeCodeIds(parentTheme, visitedThemeIds)) {
-        codeIds.add(codeId);
-      }
-    }
-
-    return codeIds;
+  const openSummaryTheme = (themeId: string) => {
+    setSelectedSummaryThemeId(themeId);
   };
 
-  const summaryRows = useMemo(() => {
-    const globalThemes = themes.filter((theme) => !theme.documentId);
-    const latestGlobalLayer =
-      globalThemes.length > 0 ? Math.max(...globalThemes.map((theme) => theme.layer)) : null;
-
-    if (latestGlobalLayer === null) return [];
-
-    return globalThemes
-      .filter((theme) => theme.layer === latestGlobalLayer)
-      .map((theme) => {
-        const codingIds = getThemeCodingIds(theme);
-        const documentIds = new Set<string>();
-
-        for (const codingId of codingIds) {
-          const documentId = codingDocumentById.get(codingId);
-          if (documentId) documentIds.add(documentId);
-        }
-
-        if (codingIds.size === 0) {
-          const codeIds = getThemeCodeIds(theme);
-          for (const document of documents) {
-            if (document.codings.some((coding) => codeIds.has(coding.codeId))) {
-              documentIds.add(document.id);
-            }
-          }
-        }
-
-        return {
-          themeId: theme.id,
-          theme: theme.name,
-          codes: codingIds.size || getThemeCodeIds(theme).size,
-          docs: documentIds.size
-        };
-      })
-      .sort((a, b) => b.codes - a.codes || b.docs - a.docs);
-  }, [codingDocumentById, documents, themes, themeById]);
+  const closeSummaryTheme = () => {
+    setSelectedSummaryThemeId('');
+  };
 
   const getThemeCodeNames = (theme: Theme, visitedThemeIds = new Set<string>()): string[] => {
     if (visitedThemeIds.has(theme.id)) return [];
@@ -393,9 +390,36 @@ export default function DataViewPage() {
                     </thead>
                     <tbody>
                       {summaryRows.map((row, index) => (
-                        <tr key={row.themeId}>
+                        <tr
+                          key={row.themeId}
+                          className="summary-table-row"
+                          tabIndex={0}
+                          onDoubleClick={() => openSummaryTheme(row.themeId)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              openSummaryTheme(row.themeId);
+                            }
+                          }}
+                          title="Double-click to open theme details"
+                        >
                           <td>{index + 1}</td>
-                          <td>{row.theme}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="summary-row-button"
+                              onDoubleClick={() => openSummaryTheme(row.themeId)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  openSummaryTheme(row.themeId);
+                                }
+                              }}
+                            >
+                              <span>{row.theme}</span>
+                              <small>{row.hasReport ? 'report saved' : 'no report text'}</small>
+                            </button>
+                          </td>
                           <td>{row.codes}</td>
                           <td>{row.docs}</td>
                         </tr>
@@ -540,6 +564,71 @@ export default function DataViewPage() {
           </>
         )}
       </section>
+
+      {selectedSummaryTheme && (
+        <div className="report-modal" role="dialog" aria-modal="true" aria-labelledby="summary-detail-title">
+          <button
+            type="button"
+            className="report-modal-backdrop"
+            aria-label="Close summary detail"
+            onClick={closeSummaryTheme}
+          />
+          <section className="summary-detail-panel">
+            <header className="summary-detail-header">
+              <div>
+                <h3 id="summary-detail-title">{selectedSummaryTheme.name}</h3>
+                <p>
+                  {selectedSummaryTheme.totalCodeCount} coded excerpts / {selectedSummaryTheme.sourceCount} sources
+                </p>
+              </div>
+              <button type="button" className="ghost-button" onClick={closeSummaryTheme}>
+                Close
+              </button>
+            </header>
+
+            <div className="summary-detail-layout">
+              <section className="summary-report-pane" aria-label="Report text">
+                <h4>Report text</h4>
+                <div className="summary-report-text">
+                  {selectedSummaryTheme.reportContent.trim() ? (
+                    selectedSummaryTheme.reportContent
+                  ) : (
+                    <span>No report text saved for this theme yet.</span>
+                  )}
+                </div>
+              </section>
+
+              <aside className="summary-side-pane">
+                <section className="summary-side-section" aria-label="Codes linked to this theme">
+                  <h4>Codes</h4>
+                  <div className="summary-code-tiles">
+                    {selectedSummaryTheme.codes.length === 0 ? (
+                      <span>No codes linked to this theme yet.</span>
+                    ) : (
+                      selectedSummaryTheme.codes.map((code) => <span key={code.id}>{code.name}</span>)
+                    )}
+                  </div>
+                </section>
+
+                <section className="summary-side-section" aria-label="Source documents">
+                  <h4>Sources</h4>
+                  <div className="summary-source-links">
+                    {selectedSummaryTheme.sources.length === 0 ? (
+                      <span>No source documents found.</span>
+                    ) : (
+                      selectedSummaryTheme.sources.map((source) => (
+                        <Link key={source.id} href={`/projects/${projectId}/coding?documentId=${source.id}`}>
+                          {source.title}
+                        </Link>
+                      ))
+                    )}
+                  </div>
+                </section>
+              </aside>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
