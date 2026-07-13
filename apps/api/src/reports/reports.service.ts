@@ -12,15 +12,22 @@ type ReportTheme = {
     code: {
       id: string;
       name: string;
-      codings: Array<{ id: string; documentId: string; document: { id: string; title: string } }>;
+      description: string | null;
+      codings: Array<{
+        id: string;
+        documentId: string;
+        snippet: string;
+        document: { id: string; title: string };
+      }>;
     };
   }>;
   codingLinks: Array<{
     coding: {
       id: string;
       documentId: string;
+      snippet: string;
       document: { id: string; title: string };
-      code: { id: string; name: string };
+      code: { id: string; name: string; description: string | null };
     };
   }>;
   parentThemeLinks: Array<{ parentThemeId: string }>;
@@ -43,10 +50,12 @@ export class ReportsService {
               select: {
                 id: true,
                 name: true,
+                description: true,
                 codings: {
                   select: {
                     id: true,
                     documentId: true,
+                    snippet: true,
                     document: {
                       select: {
                         id: true,
@@ -70,7 +79,7 @@ export class ReportsService {
                   }
                 },
                 code: {
-                  select: { id: true, name: true }
+                  select: { id: true, name: true, description: true }
                 }
               }
             }
@@ -155,7 +164,12 @@ export class ReportsService {
     themeById: Map<string, ReportTheme>,
     visitedThemeIds = new Set<string>()
   ): {
-    codes: Array<{ id: string; name: string }>;
+    codes: Array<{
+      id: string;
+      name: string;
+      description: string | null;
+      excerpts: Array<{ id: string; snippet: string; documentId: string; documentTitle: string }>;
+    }>;
     totalCodeCount: number;
     sourceCount: number;
     sources: Array<{ id: string; title: string }>;
@@ -166,27 +180,55 @@ export class ReportsService {
     }
     visitedThemeIds.add(theme.id);
 
-    const codeById = new Map<string, string>();
+    const codeById = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        description: string | null;
+        excerpts: Map<string, { id: string; snippet: string; documentId: string; documentTitle: string }>;
+      }
+    >();
     const codingIds = new Set<string>();
     const sourceById = new Map<string, string>();
     for (const link of theme.codeLinks) {
-      codeById.set(link.code.id, link.code.name);
+      const code = this.upsertReportCode(codeById, link.code.id, link.code.name, link.code.description);
       for (const coding of link.code.codings) {
         codingIds.add(coding.id);
         sourceById.set(coding.documentId, coding.document.title);
+        code.excerpts.set(coding.id, {
+          id: coding.id,
+          snippet: coding.snippet,
+          documentId: coding.documentId,
+          documentTitle: coding.document.title
+        });
       }
     }
     for (const link of theme.codingLinks) {
       codingIds.add(link.coding.id);
-      codeById.set(link.coding.code.id, link.coding.code.name);
+      const code = this.upsertReportCode(
+        codeById,
+        link.coding.code.id,
+        link.coding.code.name,
+        link.coding.code.description
+      );
       sourceById.set(link.coding.documentId, link.coding.document.title);
+      code.excerpts.set(link.coding.id, {
+        id: link.coding.id,
+        snippet: link.coding.snippet,
+        documentId: link.coding.documentId,
+        documentTitle: link.coding.document.title
+      });
     }
     for (const link of theme.parentThemeLinks) {
       const parentTheme = themeById.get(link.parentThemeId);
       if (!parentTheme) continue;
       const parentStats = this.collectThemeStats(parentTheme, themeById, visitedThemeIds);
       for (const code of parentStats.codes) {
-        codeById.set(code.id, code.name);
+        const existingCode = this.upsertReportCode(codeById, code.id, code.name, code.description);
+        for (const excerpt of code.excerpts) {
+          existingCode.excerpts.set(excerpt.id, excerpt);
+        }
       }
       for (const codingId of parentStats.codingIds) {
         codingIds.add(codingId);
@@ -201,12 +243,51 @@ export class ReportsService {
     );
 
     return {
-      codes: Array.from(codeById, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
+      codes: Array.from(codeById.values())
+        .map((code) => ({
+          id: code.id,
+          name: code.name,
+          description: code.description,
+          excerpts: Array.from(code.excerpts.values()).sort((a, b) => a.documentTitle.localeCompare(b.documentTitle))
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
       totalCodeCount: codingIds.size,
       sourceCount: sources.length,
       sources,
       codingIds
     };
+  }
+
+  private upsertReportCode(
+    codeById: Map<
+      string,
+      {
+        id: string;
+        name: string;
+        description: string | null;
+        excerpts: Map<string, { id: string; snippet: string; documentId: string; documentTitle: string }>;
+      }
+    >,
+    id: string,
+    name: string,
+    description: string | null
+  ) {
+    const existing = codeById.get(id);
+    if (existing) {
+      if (!existing.description && description) {
+        existing.description = description;
+      }
+      return existing;
+    }
+
+    const code = {
+      id,
+      name,
+      description,
+      excerpts: new Map<string, { id: string; snippet: string; documentId: string; documentTitle: string }>()
+    };
+    codeById.set(id, code);
+    return code;
   }
 
   private async assertProjectOwnership(userId: string, projectId: string) {

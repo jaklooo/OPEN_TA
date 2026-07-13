@@ -46,6 +46,15 @@ interface DocumentWithCodings extends Document {
 interface ReportCode {
   id: string;
   name: string;
+  description?: string | null;
+  excerpts: ReportCodeExcerpt[];
+}
+
+interface ReportCodeExcerpt {
+  id: string;
+  snippet: string;
+  documentId: string;
+  documentTitle: string;
 }
 
 interface ReportSource {
@@ -85,6 +94,7 @@ export default function DataViewPage() {
   const [reportThemes, setReportThemes] = useState<ReportTheme[]>([]);
   const [activeAnalyticsView, setActiveAnalyticsView] = useState<AnalyticsView>('home');
   const [selectedSummaryThemeId, setSelectedSummaryThemeId] = useState('');
+  const [selectedSummaryCodeId, setSelectedSummaryCodeId] = useState('');
   const [activeScope, setActiveScope] = useState(GLOBAL_SCOPE);
   const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
   const [editingCodeName, setEditingCodeName] = useState('');
@@ -107,6 +117,10 @@ export default function DataViewPage() {
   const selectedSummaryTheme = useMemo(
     () => reportThemes.find((theme) => theme.id === selectedSummaryThemeId) ?? null,
     [reportThemes, selectedSummaryThemeId]
+  );
+  const selectedSummaryCode = useMemo(
+    () => selectedSummaryTheme?.codes.find((code) => code.id === selectedSummaryCodeId) ?? null,
+    [selectedSummaryCodeId, selectedSummaryTheme]
   );
   useEffect(() => {
     fetchData();
@@ -236,10 +250,20 @@ export default function DataViewPage() {
 
   const openSummaryTheme = (themeId: string) => {
     setSelectedSummaryThemeId(themeId);
+    setSelectedSummaryCodeId('');
   };
 
   const closeSummaryTheme = () => {
     setSelectedSummaryThemeId('');
+    setSelectedSummaryCodeId('');
+  };
+
+  const openSummaryCode = (codeId: string) => {
+    setSelectedSummaryCodeId(codeId);
+  };
+
+  const closeSummaryCode = () => {
+    setSelectedSummaryCodeId('');
   };
 
   const getThemeCodeNames = (theme: Theme, visitedThemeIds = new Set<string>()): string[] => {
@@ -605,7 +629,22 @@ export default function DataViewPage() {
                     {selectedSummaryTheme.codes.length === 0 ? (
                       <span>No codes linked to this theme yet.</span>
                     ) : (
-                      selectedSummaryTheme.codes.map((code) => <span key={code.id}>{code.name}</span>)
+                      selectedSummaryTheme.codes.map((code) => (
+                        <button
+                          key={code.id}
+                          type="button"
+                          onDoubleClick={() => openSummaryCode(code.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              openSummaryCode(code.id);
+                            }
+                          }}
+                          title="Double-click to open code details"
+                        >
+                          {code.name}
+                        </button>
+                      ))
                     )}
                   </div>
                 </section>
@@ -626,6 +665,41 @@ export default function DataViewPage() {
                 </section>
               </aside>
             </div>
+          </section>
+        </div>
+      )}
+
+      {selectedSummaryTheme && selectedSummaryCode && (
+        <div className="summary-code-modal" role="dialog" aria-modal="true" aria-labelledby="summary-code-title">
+          <button
+            type="button"
+            className="summary-code-backdrop"
+            aria-label="Close code detail"
+            onClick={closeSummaryCode}
+          />
+          <section className="summary-code-detail-panel">
+            <header className="summary-code-detail-header">
+              <div>
+                <h3 id="summary-code-title">{selectedSummaryCode.name}</h3>
+                <p>{selectedSummaryCode.description?.trim() || 'No description saved for this code.'}</p>
+              </div>
+              <button type="button" className="ghost-button" onClick={closeSummaryCode}>
+                Close
+              </button>
+            </header>
+
+            <section className="summary-code-excerpts" aria-label="Coded excerpts">
+              {selectedSummaryCode.excerpts.length === 0 ? (
+                <p>No coded excerpts found for this code.</p>
+              ) : (
+                selectedSummaryCode.excerpts.map((excerpt) => (
+                  <article key={excerpt.id}>
+                    <blockquote>{excerpt.snippet}</blockquote>
+                    <small>Source: {excerpt.documentTitle}</small>
+                  </article>
+                ))
+              )}
+            </section>
           </section>
         </div>
       )}

@@ -8,6 +8,15 @@ import { apiUrl } from '@/lib/api';
 interface ReportCode {
   id: string;
   name: string;
+  description?: string | null;
+  excerpts: ReportCodeExcerpt[];
+}
+
+interface ReportCodeExcerpt {
+  id: string;
+  snippet: string;
+  documentId: string;
+  documentTitle: string;
 }
 
 interface ReportSource {
@@ -39,6 +48,7 @@ export default function ReportCraftingPage() {
   const [layer, setLayer] = useState<number | null>(null);
   const [themes, setThemes] = useState<ReportTheme[]>([]);
   const [selectedThemeId, setSelectedThemeId] = useState('');
+  const [selectedCodeId, setSelectedCodeId] = useState('');
   const [draft, setDraft] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -50,6 +60,10 @@ export default function ReportCraftingPage() {
     () => themes.find((theme) => theme.id === selectedThemeId) ?? null,
     [selectedThemeId, themes]
   );
+  const selectedCode = useMemo(
+    () => selectedTheme?.codes.find((code) => code.id === selectedCodeId) ?? null,
+    [selectedCodeId, selectedTheme]
+  );
 
   useEffect(() => {
     fetchThemes();
@@ -59,6 +73,7 @@ export default function ReportCraftingPage() {
     if (selectedTheme) {
       setDraft(selectedTheme.reportContent);
       setShowSources(false);
+      setSelectedCodeId('');
       setSuccess('');
     }
   }, [selectedTheme]);
@@ -89,9 +104,18 @@ export default function ReportCraftingPage() {
 
   const closeTheme = () => {
     setSelectedThemeId('');
+    setSelectedCodeId('');
     setDraft('');
     setShowSources(false);
     setSuccess('');
+  };
+
+  const openCode = (codeId: string) => {
+    setSelectedCodeId(codeId);
+  };
+
+  const closeCode = () => {
+    setSelectedCodeId('');
   };
 
   const saveReport = async () => {
@@ -213,7 +237,22 @@ export default function ReportCraftingPage() {
               {selectedTheme.codes.length === 0 ? (
                 <span>No codes linked to this theme yet.</span>
               ) : (
-                selectedTheme.codes.map((code) => <span key={code.id}>{code.name}</span>)
+                selectedTheme.codes.map((code) => (
+                  <button
+                    key={code.id}
+                    type="button"
+                    onDoubleClick={() => openCode(code.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        openCode(code.id);
+                      }
+                    }}
+                    title="Double-click to open code details"
+                  >
+                    {code.name}
+                  </button>
+                ))
               )}
             </div>
 
@@ -233,6 +272,41 @@ export default function ReportCraftingPage() {
                 {isSaving ? 'Saving...' : 'Save report'}
               </button>
             </footer>
+          </section>
+        </div>
+      )}
+
+      {selectedTheme && selectedCode && (
+        <div className="summary-code-modal" role="dialog" aria-modal="true" aria-labelledby="report-code-title">
+          <button
+            type="button"
+            className="summary-code-backdrop"
+            aria-label="Close code detail"
+            onClick={closeCode}
+          />
+          <section className="summary-code-detail-panel">
+            <header className="summary-code-detail-header">
+              <div>
+                <h3 id="report-code-title">{selectedCode.name}</h3>
+                <p>{selectedCode.description?.trim() || 'No description saved for this code.'}</p>
+              </div>
+              <button type="button" className="ghost-button" onClick={closeCode}>
+                Close
+              </button>
+            </header>
+
+            <section className="summary-code-excerpts" aria-label="Coded excerpts">
+              {selectedCode.excerpts.length === 0 ? (
+                <p>No coded excerpts found for this code.</p>
+              ) : (
+                selectedCode.excerpts.map((excerpt) => (
+                  <article key={excerpt.id}>
+                    <blockquote>{excerpt.snippet}</blockquote>
+                    <small>Source: {excerpt.documentTitle}</small>
+                  </article>
+                ))
+              )}
+            </section>
           </section>
         </div>
       )}
