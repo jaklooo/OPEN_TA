@@ -68,13 +68,48 @@ main {
 
 .nav {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 0.9rem;
   padding: 1rem 0;
+}
+
+.nav-brand-group {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.nav-brand {
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+
+.project-switcher {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.project-switcher select {
+  width: min(240px, 32vw);
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
 }
 
 .nav-links {
   display: flex;
+  flex: 1;
+  justify-content: flex-end;
   gap: 0.75rem;
   flex-wrap: wrap;
 }
@@ -89,6 +124,36 @@ main {
 .mobile-nav-toggle,
 .mobile-nav-menu {
   display: none;
+}
+
+.logout-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.logout-button:hover,
+.logout-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.logout-button svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 .mobile-nav-link {
@@ -1415,10 +1480,29 @@ main {
     top: 0;
     z-index: 40;
     width: 100%;
+    gap: 0.55rem;
     padding: 0.75rem 1rem;
     border-bottom: 1px solid var(--line);
     background: rgba(255, 253, 248, 0.96);
     backdrop-filter: blur(12px);
+  }
+
+  .nav-brand-group {
+    flex: 1;
+    gap: 0.55rem;
+  }
+
+  .project-switcher {
+    flex: 1;
+  }
+
+  .project-switcher span {
+    display: none;
+  }
+
+  .project-switcher select {
+    width: 100%;
+    min-width: 0;
   }
 
   .nav-links {
@@ -1435,11 +1519,17 @@ main {
 
   .mobile-nav-toggle {
     display: inline-flex;
+    flex: 0 0 auto;
     align-items: center;
     justify-content: center;
     border-color: var(--line);
     background: var(--surface);
     color: var(--ink);
+  }
+
+  .logout-button {
+    width: 40px;
+    height: 40px;
   }
 
   .mobile-nav-menu {
