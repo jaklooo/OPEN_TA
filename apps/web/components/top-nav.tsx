@@ -18,6 +18,7 @@ export function TopNav() {
   const { user, logout } = useAuth();
   const projectId = params.projectId as string | undefined;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const base = projectId ? `/projects/${projectId}` : '/projects';
   const items = [
@@ -61,7 +62,11 @@ export function TopNav() {
   }, [user]);
 
   const handleProjectChange = (nextProjectId: string) => {
-    if (!nextProjectId || nextProjectId === projectId) return;
+    if (!nextProjectId) return;
+    if (nextProjectId === projectId) {
+      setIsProjectMenuOpen(false);
+      return;
+    }
 
     const pathParts = pathname.split('/').filter(Boolean);
     const projectsIndex = pathParts.indexOf('projects');
@@ -69,12 +74,14 @@ export function TopNav() {
       projectsIndex >= 0 && pathParts[projectsIndex + 2] ? pathParts[projectsIndex + 2] : 'documents';
 
     setIsMenuOpen(false);
+    setIsProjectMenuOpen(false);
     router.push(`/projects/${nextProjectId}/${currentSection}` as any);
   };
 
   const handleLogout = () => {
     logout();
     setIsMenuOpen(false);
+    setIsProjectMenuOpen(false);
     router.push('/login');
   };
 
@@ -84,23 +91,36 @@ export function TopNav() {
         <Link className="nav-brand" href="/projects">
           OPEN_TA
         </Link>
-        <label className="project-switcher">
-          <span>Change project</span>
-          <select
-            value={projectId ?? ''}
-            onChange={(event) => handleProjectChange(event.target.value)}
-            disabled={projects.length === 0}
+        <div className="project-switcher">
+          <button
+            type="button"
+            className="project-switcher-trigger"
+            aria-expanded={isProjectMenuOpen}
+            aria-haspopup="menu"
+            onClick={() => setIsProjectMenuOpen((value) => !value)}
           >
-            <option value="" disabled>
-              {projects.length === 0 ? 'No projects' : 'Select project'}
-            </option>
-            {projects.map((project) => (
-              <option value={project.id} key={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        </label>
+            Change project
+          </button>
+          {isProjectMenuOpen && (
+            <div className="project-switcher-menu" role="menu">
+              {projects.length === 0 ? (
+                <span>No projects</span>
+              ) : (
+                projects.map((project) => (
+                  <button
+                    type="button"
+                    className={project.id === projectId ? 'active' : undefined}
+                    role="menuitem"
+                    onClick={() => handleProjectChange(project.id)}
+                    key={project.id}
+                  >
+                    {project.name}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </div>
       <button
         type="button"

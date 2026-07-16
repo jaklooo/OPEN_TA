@@ -74,10 +74,11 @@ main {
 }
 
 .nav-brand-group {
+  position: relative;
   display: flex;
-  min-width: 0;
+  flex: 0 0 auto;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1.4rem;
 }
 
 .nav-brand {
@@ -86,24 +87,74 @@ main {
 }
 
 .project-switcher {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 0.45rem;
-  color: var(--muted);
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.project-switcher-trigger {
+  min-height: auto;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
   font-size: 0.86rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.22em;
   white-space: nowrap;
 }
 
-.project-switcher select {
-  width: min(240px, 32vw);
-  min-height: 36px;
+.project-switcher-trigger:hover,
+.project-switcher-trigger:focus-visible {
+  color: var(--accent-2);
+}
+
+.project-switcher-menu {
+  position: absolute;
+  top: calc(100% + 0.55rem);
+  left: 0;
+  z-index: 55;
+  display: grid;
+  width: max-content;
+  min-width: 190px;
+  max-width: min(300px, calc(100vw - 2rem));
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 0.35rem 0.55rem;
   background: var(--surface);
+  box-shadow: 0 16px 36px rgba(31, 26, 23, 0.14);
+}
+
+.project-switcher-menu button,
+.project-switcher-menu span {
+  width: 100%;
+  min-height: auto;
+  border: 0;
+  border-radius: 0;
+  padding: 0.55rem 0.7rem;
+  background: transparent;
   color: var(--ink);
   font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.project-switcher-menu span {
+  color: var(--muted);
+}
+
+.project-switcher-menu button {
+  cursor: pointer;
+}
+
+.project-switcher-menu button:hover,
+.project-switcher-menu button:focus-visible,
+.project-switcher-menu button.active {
+  background: #f7f4ec;
+  color: var(--accent);
 }
 
 .nav-links {
@@ -129,8 +180,8 @@ main {
 .logout-button {
   display: inline-flex;
   flex: 0 0 auto;
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--line);
@@ -147,8 +198,8 @@ main {
 }
 
 .logout-button svg {
-  width: 19px;
-  height: 19px;
+  width: 16px;
+  height: 16px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -1488,21 +1539,16 @@ main {
   }
 
   .nav-brand-group {
-    flex: 1;
-    gap: 0.55rem;
+    flex: 1 1 auto;
+    gap: 1rem;
   }
 
   .project-switcher {
-    flex: 1;
-  }
-
-  .project-switcher span {
-    display: none;
-  }
-
-  .project-switcher select {
-    width: 100%;
     min-width: 0;
+  }
+
+  .project-switcher-menu {
+    min-width: 180px;
   }
 
   .nav-links {
@@ -1528,8 +1574,8 @@ main {
   }
 
   .logout-button {
-    width: 40px;
-    height: 40px;
+    width: 34px;
+    height: 34px;
   }
 
   .mobile-nav-menu {
