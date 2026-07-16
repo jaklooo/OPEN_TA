@@ -29,6 +29,7 @@ export function TopNav() {
     { href: `${base}/data-view`, label: 'Data View' },
     { href: `${base}/import-export`, label: 'Import / Export' }
   ];
+  const isActiveItem = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   useEffect(() => {
     if (!user) {
@@ -132,11 +133,20 @@ export function TopNav() {
         Menu
       </button>
       <nav className="nav-links">
-        {items.map((item) => (
-          <Link className="nav-link" href={item.href as any} key={item.href}>
-            {item.label}
-          </Link>
-        ))}
+        {items.map((item) => {
+          const isActive = isActiveItem(item.href);
+
+          return (
+            <Link
+              className={`nav-link ${isActive ? 'active' : ''}`}
+              href={item.href as any}
+              aria-current={isActive ? 'page' : undefined}
+              key={item.href}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
       <button type="button" className="logout-button" aria-label="Log out" title="Log out" onClick={handleLogout}>
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -146,11 +156,21 @@ export function TopNav() {
         </svg>
       </button>
       <nav id="mobile-project-nav" className={`mobile-nav-menu ${isMenuOpen ? 'open' : ''}`}>
-        {items.map((item) => (
-          <Link className="mobile-nav-link" href={item.href as any} key={item.href} onClick={() => setIsMenuOpen(false)}>
-            {item.label}
-          </Link>
-        ))}
+        {items.map((item) => {
+          const isActive = isActiveItem(item.href);
+
+          return (
+            <Link
+              className={`mobile-nav-link ${isActive ? 'active' : ''}`}
+              href={item.href as any}
+              aria-current={isActive ? 'page' : undefined}
+              key={item.href}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
     </header>
   );
