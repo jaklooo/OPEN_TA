@@ -35,7 +35,14 @@ interface Theme {
 interface ReportTheme {
   id: string;
   name: string;
-  codes: Array<{ id: string; name: string }>;
+  codes: Array<{
+    id: string;
+    name: string;
+    excerpts?: Array<{
+      documentId: string;
+      documentTitle: string;
+    }>;
+  }>;
   sourceCount?: number;
   reportContent: string;
 }
@@ -403,6 +410,20 @@ function createDocxTextBlock(text: string) {
     .join('');
 }
 
+function getReportCodeDocumentTitles(theme: ReportTheme) {
+  const titles = new Set<string>();
+
+  for (const code of theme.codes) {
+    for (const excerpt of code.excerpts ?? []) {
+      if (excerpt.documentTitle.trim()) {
+        titles.add(excerpt.documentTitle.trim());
+      }
+    }
+  }
+
+  return Array.from(titles).sort((a, b) => a.localeCompare(b));
+}
+
 function createReportDocx(themes: ReportTheme[]) {
   const body: string[] = [
     createDocxParagraph('Thematic Analysis report', { style: 'Title' }),
@@ -415,13 +436,16 @@ function createReportDocx(themes: ReportTheme[]) {
 
   themes.forEach((theme, index) => {
     const codes = theme.codes.map((code) => code.name).join(', ') || 'No codes';
-    const meta = [`Codes: ${codes}`];
-    if (typeof theme.sourceCount === 'number') meta.push(`Sources: ${theme.sourceCount}`);
+    const documentTitles = getReportCodeDocumentTitles(theme).join(', ') || 'No documents';
 
     body.push(
       createDocxPageBreak(),
       createDocxParagraph(`${index + 1}. ${theme.name}`, { style: 'Heading1' }),
-      createDocxParagraph(meta.join(' / '), { italic: true }),
+      createDocxParagraph(`Codes: ${codes}`, { italic: true }),
+      createDocxParagraph(`Codes were present in docs: ${documentTitles}`, { italic: true }),
+      ...(typeof theme.sourceCount === 'number'
+        ? [createDocxParagraph(`Sources: ${theme.sourceCount}`, { italic: true })]
+        : []),
       createDocxTextBlock(theme.reportContent)
     );
   });
@@ -629,7 +653,9 @@ function createReportPdf(themes: ReportTheme[]) {
     y -= 28;
 
     const codes = theme.codes.map((code) => code.name).join(', ');
-    addWrappedText(`(${codes || 'No codes'})`, 11, 16, 'italic');
+    const documentTitles = getReportCodeDocumentTitles(theme).join(', ') || 'No documents';
+    addWrappedText(`Codes: ${codes || 'No codes'}`, 11, 16, 'italic');
+    addWrappedText(`Codes were present in docs: ${documentTitles}`, 11, 16, 'italic');
     y -= 12;
     addWrappedText(theme.reportContent.trim() || 'No report text saved for this theme.', 12, 18);
   });

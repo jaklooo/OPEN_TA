@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { DocumentUpload } from '@/components/document-upload';
 import { TopNav } from '@/components/top-nav';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, getApiError } from '@/lib/api';
 
 interface Document {
   id: string;
@@ -20,6 +20,9 @@ export default function DocumentsPage() {
   const projectId = params.projectId as string;
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+  const [savingDocumentId, setSavingDocumentId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -69,6 +72,51 @@ export default function DocumentsPage() {
     }
   };
 
+  const startEditingDocument = (document: Document) => {
+    setEditingDocumentId(document.id);
+    setEditingTitle(document.title);
+    setError('');
+  };
+
+  const cancelEditingDocument = () => {
+    setEditingDocumentId(null);
+    setEditingTitle('');
+  };
+
+  const handleUpdateDocumentTitle = async (documentId: string) => {
+    const title = editingTitle.trim();
+    if (title.length < 2) {
+      setError('Document title must be at least 2 characters.');
+      return;
+    }
+
+    try {
+      setSavingDocumentId(documentId);
+      setError('');
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch(apiUrl(`/projects/${projectId}/documents/${documentId}`), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ title })
+      });
+
+      if (!res.ok) {
+        throw new Error(await getApiError(res, 'Failed to update document'));
+      }
+
+      const updatedDocument = await res.json();
+      setDocuments((prev) => prev.map((doc) => (doc.id === documentId ? updatedDocument : doc)));
+      cancelEditingDocument();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingDocumentId(null);
+    }
+  };
+
   return (
     <main>
       <TopNav />
@@ -98,7 +146,42 @@ export default function DocumentsPage() {
               {documents.map((doc) => (
                 <article className="document-row" key={doc.id}>
                   <div>
-                    <strong>{doc.title}</strong>
+                    {editingDocumentId === doc.id ? (
+                      <div className="document-title-edit">
+                        <label>
+                          <span className="sr-only">Document title</span>
+                          <input
+                            type="text"
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                void handleUpdateDocumentTitle(doc.id);
+                              }
+
+                              if (e.key === 'Escape') {
+                                cancelEditingDocument();
+                              }
+                            }}
+                            autoFocus
+                          />
+                        </label>
+                        <div className="document-title-edit-actions">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateDocumentTitle(doc.id)}
+                            disabled={savingDocumentId === doc.id}
+                          >
+                            {savingDocumentId === doc.id ? 'Saving...' : 'Save'}
+                          </button>
+                          <button type="button" className="ghost-button" onClick={cancelEditingDocument}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <strong>{doc.title}</strong>
+                    )}
                     <p>
                       {doc.sourceType === 'IMPORTED_CODES'
                         ? 'Imported codes only'
@@ -109,6 +192,11 @@ export default function DocumentsPage() {
                     </small>
                   </div>
                   <div className="document-row-actions">
+                    {editingDocumentId !== doc.id && (
+                      <button type="button" className="ghost-button" onClick={() => startEditingDocument(doc)}>
+                        Edit
+                      </button>
+                    )}
                     {doc.sourceType === 'IMPORTED_CODES' ? (
                       <Link className="nav-link" href={`/projects/${projectId}/data-view`}>
                         View Data

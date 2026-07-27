@@ -281,10 +281,34 @@ main {
   color: var(--muted);
 }
 
+.document-title-edit {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.document-title-edit input {
+  width: min(520px, 100%);
+}
+
+.document-title-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .document-row-actions {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 
 .coding-workspace {
@@ -1415,6 +1439,9 @@ main {
 .document-list,
 .document-row,
 .document-row > *,
+.document-title-edit,
+.document-title-edit > *,
+.document-title-edit-actions,
 .document-row-actions,
 .coding-workspace,
 .coding-header,
