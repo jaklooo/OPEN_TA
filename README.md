@@ -102,3 +102,30 @@ pnpm --filter @open-ta/api prisma:migrate
 ## License
 
 MIT
+
+## Language, subprojects and analytics
+
+- The language selector offers Czech (default) and English. The preference is stored
+  in a browser cookie and applies to navigation, forms, dates, CSV/XLSX headers,
+  DOCX reports and PDF exports. Switching language reloads the page; save edits first.
+  Research content (project names, themes, excerpts and authored reports) is preserved.
+- Set a parent project when creating a year/subproject, or change the parent from
+  My Projects. Each subproject keeps its own documents, codes and themes. Deleting
+  a parent leaves its subprojects intact as standalone projects.
+- Cross-project analytics compares the latest global theme layer of each selected
+  project. Select individual years or include all descendants of a parent. Matching
+  trims whitespace and ignores case, but does not infer semantic equivalence.
+  Cells show coded excerpt memberships / source document memberships; duplicate
+  theme names within a project sum memberships rather than deduplicating sources.
+- Both the project summary table and cross-project table export all rows to PDF.
+  Wide tables split across pages with repeated theme columns and headers. PDFs
+  embed the bundled OFL-licensed Noto Sans font for Czech diacritics.
+
+Before running the updated API, apply the additive hierarchy migration:
+
+```bash
+pnpm --filter @open-ta/api prisma:generate
+pnpm --filter @open-ta/api prisma:deploy:local
+```
+
+For other environments, run `prisma migrate deploy` with the intended database URL.

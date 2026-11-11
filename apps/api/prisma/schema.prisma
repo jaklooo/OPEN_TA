@@ -33,6 +33,9 @@ model Project {
   owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  parentId     String?
+  parent       Project?      @relation("Subprojects", fields: [parentId], references: [id], onDelete: SetNull)
+  children     Project[]     @relation("Subprojects")
   documents    Document[]
   codes        Code[]
   codings      Coding[]
@@ -40,6 +43,7 @@ model Project {
   themeReports ThemeReport[]
 
   @@index([ownerId])
+  @@index([parentId])
 }
 
 model Document {

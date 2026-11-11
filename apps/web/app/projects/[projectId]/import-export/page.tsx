@@ -1,9 +1,11 @@
 'use client';
+import { t, localeTag } from '@/lib/i18n';
+
 
 import { type ChangeEvent, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { TopNav } from '@/components/top-nav';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, getApiError } from '@/lib/api';
 
 interface Document {
   id: string;
@@ -85,11 +87,11 @@ const EXPORT_COLUMNS: Array<keyof ExportRow> = [
 ];
 
 const IMPORT_FIELDS = [
-  { key: 'codeName', label: 'Code' },
-  { key: 'snippet', label: 'Marked text' },
-  { key: 'codeDescription', label: 'Code description' },
-  { key: 'startIndex', label: 'Start string/index' },
-  { key: 'endIndex', label: 'End string/index' }
+  { key: 'codeName', label: t("Code") },
+  { key: 'snippet', label: t("Marked text") },
+  { key: 'codeDescription', label: t("Code description") },
+  { key: 'startIndex', label: t("Start string/index") },
+  { key: 'endIndex', label: t("End string/index") }
 ] as const;
 
 type ImportField = (typeof IMPORT_FIELDS)[number]['key'];
@@ -107,10 +109,10 @@ const EMPTY_MAPPING: ColumnMapping = {
 
 const FIELD_COLUMN_HINTS: Record<ImportField, string[]> = {
   codeName: ['code', 'code_name', 'kod', 'kód'],
-  snippet: ['analyzed_text', 'marked_text', 'selected_text', 'snippet', 'text', 'označený text', 'oznaceny text'],
+  snippet: ['analyzovaný text', 'analyzed_text', 'marked_text', 'selected_text', 'snippet', 'text', 'označený text', 'oznaceny text'],
   codeDescription: ['code_description', 'description', 'code_desc', 'popis', 'popis kódu', 'popis kodu'],
-  startIndex: ['start_string', 'start_index', 'start', 'začiatok', 'zaciatok'],
-  endIndex: ['end_string', 'end_index', 'end', 'koniec']
+  startIndex: ['začátek', 'start_string', 'start_index', 'start', 'začiatok', 'zaciatok'],
+  endIndex: ['konec', 'end_string', 'end_index', 'end', 'koniec']
 };
 
 function escapeCsvCell(value: string | number) {
@@ -212,7 +214,7 @@ function parseIndex(value: string, fallback: number) {
 }
 
 function buildCsv(rows: ExportRow[]) {
-  const header = EXPORT_COLUMNS.join(',');
+  const header = EXPORT_COLUMNS.map((column) => escapeCsvCell(t(column))).join(',');
   const body = rows.map((row) => EXPORT_COLUMNS.map((column) => escapeCsvCell(row[column])).join(','));
   return `\uFEFF${[header, ...body].join('\n')}`;
 }
@@ -321,7 +323,7 @@ function createZip(files: Array<{ name: string; content: string }>) {
 
 function buildXlsx(rows: ExportRow[]) {
   const sheetRows = [
-    EXPORT_COLUMNS.map((column) => String(column)),
+    EXPORT_COLUMNS.map((column) => t(column)),
     ...rows.map((row) => EXPORT_COLUMNS.map((column) => row[column]))
   ];
 
@@ -365,7 +367,7 @@ function buildXlsx(rows: ExportRow[]) {
       content: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <sheets>
-    <sheet name="Coding Export" sheetId="1" r:id="rId1"/>
+    <sheet name="${escapeXml(t('Coding results'))}" sheetId="1" r:id="rId1"/>
   </sheets>
 </workbook>`
     },
@@ -404,7 +406,7 @@ function createDocxPageBreak() {
 }
 
 function createDocxTextBlock(text: string) {
-  const lines = text.trim() ? text.trim().split(/\n/) : ['No report text saved for this theme.'];
+  const lines = text.trim() ? text.trim().split(/\n/) : [t("No report text saved for this theme.")];
   return lines
     .map((line) => (line.trim() ? createDocxParagraph(line.trim()) : '<w:p/>'))
     .join('');
@@ -426,8 +428,8 @@ function getReportCodeDocumentTitles(theme: ReportTheme) {
 
 function createReportDocx(themes: ReportTheme[]) {
   const body: string[] = [
-    createDocxParagraph('Thematic Analysis report', { style: 'Title' }),
-    createDocxParagraph('List of themes', { style: 'Heading1' })
+    createDocxParagraph(t("Thematic Analysis report"), { style: 'Title' }),
+    createDocxParagraph(t("List of themes"), { style: 'Heading1' })
   ];
 
   themes.forEach((theme, index) => {
@@ -435,16 +437,16 @@ function createReportDocx(themes: ReportTheme[]) {
   });
 
   themes.forEach((theme, index) => {
-    const codes = theme.codes.map((code) => code.name).join(', ') || 'No codes';
-    const documentTitles = getReportCodeDocumentTitles(theme).join(', ') || 'No documents';
+    const codes = theme.codes.map((code) => code.name).join(', ') || t("No codes");
+    const documentTitles = getReportCodeDocumentTitles(theme).join(', ') || t("No documents");
 
     body.push(
       createDocxPageBreak(),
       createDocxParagraph(`${index + 1}. ${theme.name}`, { style: 'Heading1' }),
-      createDocxParagraph(`Codes: ${codes}`, { italic: true }),
-      createDocxParagraph(`Codes were present in docs: ${documentTitles}`, { italic: true }),
+      createDocxParagraph(`${t("Codes")}: ${codes}`, { italic: true }),
+      createDocxParagraph(`${t("Source documents")}: ${documentTitles}`, { italic: true }),
       ...(typeof theme.sourceCount === 'number'
-        ? [createDocxParagraph(`Sources: ${theme.sourceCount}`, { italic: true })]
+        ? [createDocxParagraph(`${t("Sources")}: ${theme.sourceCount}`, { italic: true })]
         : []),
       createDocxTextBlock(theme.reportContent)
     );
@@ -467,7 +469,7 @@ function createReportDocx(themes: ReportTheme[]) {
     <w:name w:val="Normal"/>
     <w:qFormat/>
     <w:pPr><w:spacing w:after="160" w:line="276" w:lineRule="auto"/></w:pPr>
-    <w:rPr><w:sz w:val="24"/></w:rPr>
+    <w:rPr><w:lang w:val="${localeTag()}"/><w:sz w:val="24"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Title">
     <w:name w:val="Title"/>
@@ -532,201 +534,6 @@ function createReportDocx(themes: ReportTheme[]) {
   });
 }
 
-type PdfTextItem = {
-  text: string;
-  x: number;
-  y: number;
-  size: number;
-  font: 'regular' | 'bold' | 'italic';
-};
-
-type PdfLinkItem = {
-  rect: [number, number, number, number];
-  themeIndex: number;
-  targetPageIndex: number;
-};
-
-type PdfPage = {
-  texts: PdfTextItem[];
-  links: PdfLinkItem[];
-};
-
-const PDF_WIDTH = 595.28;
-const PDF_HEIGHT = 841.89;
-const PDF_MARGIN = 56;
-const PDF_BOTTOM = 56;
-
-function escapePdfText(value: string) {
-  return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
-}
-
-function estimatePdfTextWidth(value: string, size: number) {
-  return value.length * size * 0.48;
-}
-
-function wrapPdfText(value: string, maxWidth: number, size: number) {
-  const paragraphs = value.split(/\n/);
-  const lines: string[] = [];
-
-  for (const paragraph of paragraphs) {
-    const words = paragraph.trim().split(/\s+/).filter(Boolean);
-    if (words.length === 0) {
-      lines.push('');
-      continue;
-    }
-
-    let line = '';
-    for (const word of words) {
-      const candidate = line ? `${line} ${word}` : word;
-      if (estimatePdfTextWidth(candidate, size) <= maxWidth || !line) {
-        line = candidate;
-      } else {
-        lines.push(line);
-        line = word;
-      }
-    }
-    if (line) lines.push(line);
-  }
-
-  return lines;
-}
-
-function createReportPdf(themes: ReportTheme[]) {
-  const pages: PdfPage[] = [{ texts: [], links: [] }];
-  const chapterPageIndexes: number[] = [];
-  let currentPage = pages[0];
-  let y = PDF_HEIGHT - PDF_MARGIN;
-
-  const addPage = () => {
-    const page = { texts: [], links: [] };
-    pages.push(page);
-    currentPage = page;
-    y = PDF_HEIGHT - PDF_MARGIN;
-    return page;
-  };
-
-  const addText = (
-    text: string,
-    x: number,
-    currentY: number,
-    size: number,
-    font: 'regular' | 'bold' | 'italic' = 'regular'
-  ) => {
-    currentPage.texts.push({ text, x, y: currentY, size, font });
-  };
-
-  const addWrappedText = (
-    text: string,
-    size: number,
-    lineHeight: number,
-    font: 'regular' | 'bold' | 'italic' = 'regular'
-  ) => {
-    const maxWidth = PDF_WIDTH - PDF_MARGIN * 2;
-    for (const line of wrapPdfText(text, maxWidth, size)) {
-      if (y < PDF_BOTTOM + lineHeight) addPage();
-      addText(line, PDF_MARGIN, y, size, font);
-      y -= lineHeight;
-    }
-  };
-
-  addText('Thematic Analysis report', PDF_MARGIN, y, 18, 'bold');
-  y -= 28;
-  addText('List of themes', PDF_MARGIN, y, 16, 'bold');
-  y -= 30;
-  themes.forEach((theme, index) => {
-    if (y < PDF_BOTTOM + 24) addPage();
-    const label = `${index + 1}. ${theme.name}`;
-    addText(label, PDF_MARGIN, y, 12, 'regular');
-    currentPage.links.push({
-      rect: [PDF_MARGIN, y - 3, PDF_MARGIN + Math.min(430, estimatePdfTextWidth(label, 12) + 8), y + 13],
-      themeIndex: index,
-      targetPageIndex: -1
-    });
-    y -= 20;
-  });
-
-  themes.forEach((theme, index) => {
-    const page = addPage();
-    chapterPageIndexes[index] = pages.length - 1;
-    const title = `${index + 1}. ${theme.name}`;
-    addText(title, (PDF_WIDTH - estimatePdfTextWidth(title, 15)) / 2, y, 15, 'bold');
-    y -= 28;
-
-    const codes = theme.codes.map((code) => code.name).join(', ');
-    const documentTitles = getReportCodeDocumentTitles(theme).join(', ') || 'No documents';
-    addWrappedText(`Codes: ${codes || 'No codes'}`, 11, 16, 'italic');
-    addWrappedText(`Codes were present in docs: ${documentTitles}`, 11, 16, 'italic');
-    y -= 12;
-    addWrappedText(theme.reportContent.trim() || 'No report text saved for this theme.', 12, 18);
-  });
-
-  for (const page of pages) {
-    for (const link of page.links) {
-      link.targetPageIndex = chapterPageIndexes[link.themeIndex] ?? 0;
-    }
-  }
-
-  const encoder = new TextEncoder();
-  const pagesObjectId = 4;
-  const catalogObjectId = 5;
-  let nextObjectId = 6;
-  const pageObjectIds = pages.map(() => nextObjectId++);
-  const contentObjectIds = pages.map(() => nextObjectId++);
-  const annotationObjectIds = pages.map((page) => page.links.map(() => nextObjectId++));
-  const objects = new Map<number, string>();
-
-  objects.set(1, '<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman >>');
-  objects.set(2, '<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold >>');
-  objects.set(3, '<< /Type /Font /Subtype /Type1 /BaseFont /Times-Italic >>');
-  objects.set(catalogObjectId, `<< /Type /Catalog /Pages ${pagesObjectId} 0 R >>`);
-
-  pages.forEach((page, pageIndex) => {
-    const stream = page.texts
-      .map((item) => {
-        const fontName = item.font === 'bold' ? 'F2' : item.font === 'italic' ? 'F3' : 'F1';
-        return `BT /${fontName} ${item.size} Tf ${item.x.toFixed(2)} ${item.y.toFixed(2)} Td (${escapePdfText(item.text)}) Tj ET`;
-      })
-      .join('\n');
-    const streamBytes = encoder.encode(stream);
-    objects.set(contentObjectIds[pageIndex], `<< /Length ${streamBytes.length} >>\nstream\n${stream}\nendstream`);
-
-    const annots = annotationObjectIds[pageIndex];
-    objects.set(
-      pageObjectIds[pageIndex],
-      `<< /Type /Page /Parent ${pagesObjectId} 0 R /MediaBox [0 0 ${PDF_WIDTH} ${PDF_HEIGHT}] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents ${contentObjectIds[pageIndex]} 0 R${
-        annots.length > 0 ? ` /Annots [${annots.map((id) => `${id} 0 R`).join(' ')}]` : ''
-      } >>`
-    );
-
-    page.links.forEach((link, linkIndex) => {
-      const targetPageObjectId = pageObjectIds[link.targetPageIndex] ?? pageObjectIds[0];
-      objects.set(
-        annots[linkIndex],
-        `<< /Type /Annot /Subtype /Link /Rect [${link.rect.map((value) => value.toFixed(2)).join(' ')}] /Border [0 0 0] /A << /S /GoTo /D [${targetPageObjectId} 0 R /Fit] >> >>`
-      );
-    });
-  });
-
-  objects.set(pagesObjectId, `<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pages.length} >>`);
-
-  let pdf = '%PDF-1.7\n%\u00e2\u00e3\u00cf\u00d3\n';
-  const offsets: number[] = [0];
-  const sortedObjectIds = Array.from(objects.keys()).sort((a, b) => a - b);
-  for (const objectId of sortedObjectIds) {
-    offsets[objectId] = encoder.encode(pdf).length;
-    pdf += `${objectId} 0 obj\n${objects.get(objectId)}\nendobj\n`;
-  }
-  const xrefOffset = encoder.encode(pdf).length;
-  const maxObjectId = Math.max(...sortedObjectIds);
-  pdf += `xref\n0 ${maxObjectId + 1}\n0000000000 65535 f \n`;
-  for (let objectId = 1; objectId <= maxObjectId; objectId += 1) {
-    pdf += `${String(offsets[objectId] ?? 0).padStart(10, '0')} 00000 n \n`;
-  }
-  pdf += `trailer\n<< /Size ${maxObjectId + 1} /Root ${catalogObjectId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-
-  return new Blob([encoder.encode(pdf)], { type: 'application/pdf' });
-}
-
 export default function ImportExportPage() {
   const params = useParams();
   const projectId = params.projectId as string;
@@ -747,8 +554,8 @@ export default function ImportExportPage() {
       fetch(apiUrl(`/projects/${projectId}/themes`), { headers })
     ]);
 
-    if (!documentsRes.ok) throw new Error('Failed to fetch documents for export');
-    if (!themesRes.ok) throw new Error('Failed to fetch themes for export');
+    if (!documentsRes.ok) throw new Error(t("Failed to fetch documents for export"));
+    if (!themesRes.ok) throw new Error(t("Failed to fetch themes for export"));
 
     const documents: Document[] = await documentsRes.json();
     const themes: Theme[] = await themesRes.json();
@@ -759,7 +566,7 @@ export default function ImportExportPage() {
         headers
       });
 
-      if (!codingsRes.ok) throw new Error(`Failed to fetch codings for ${document.title}`);
+      if (!codingsRes.ok) throw new Error(`${t("Failed to fetch codings")}: ${document.title}`);
 
       const codings: Coding[] = await codingsRes.json();
       for (const coding of codings) {
@@ -840,11 +647,12 @@ export default function ImportExportPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (!res.ok) throw new Error('Failed to fetch report content');
+      if (!res.ok) throw new Error(t("Failed to fetch report content"));
       const data: ReportThemesResponse = await res.json();
-      if (data.themes.length === 0) throw new Error('No global themes available for report export');
+      if (data.themes.length === 0) throw new Error(t("No global themes available for report export"));
 
-      downloadBlob(createReportPdf(data.themes), 'open-ta-report.pdf');
+      const { exportReportPdf } = await import('@/lib/pdf-export');
+      await exportReportPdf(data.themes);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -862,9 +670,9 @@ export default function ImportExportPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (!res.ok) throw new Error('Failed to fetch report content');
+      if (!res.ok) throw new Error(t("Failed to fetch report content"));
       const data: ReportThemesResponse = await res.json();
-      if (data.themes.length === 0) throw new Error('No global themes available for report export');
+      if (data.themes.length === 0) throw new Error(t("No global themes available for report export"));
 
       downloadBlob(createReportDocx(data.themes), 'open-ta-report.docx');
     } catch (err) {
@@ -882,7 +690,7 @@ export default function ImportExportPage() {
       setError('');
       setSuccess('');
       const parsed = parseCsv(await file.text());
-      if (parsed.headers.length === 0) throw new Error('CSV file does not contain a header row');
+      if (parsed.headers.length === 0) throw new Error(t("CSV file does not contain a header row"));
       setCsvHeaders(parsed.headers);
       setCsvRows(parsed.rows);
       setColumnMapping(inferMapping(parsed.headers));
@@ -906,12 +714,12 @@ export default function ImportExportPage() {
   const handleImportCodings = async () => {
     const missingField = REQUIRED_IMPORT_FIELDS.find((field) => !columnMapping[field]);
     if (missingField) {
-      setError(`Map the ${IMPORT_FIELDS.find((field) => field.key === missingField)?.label} column before importing`);
+      setError(`${t("Map column before importing")}: ${IMPORT_FIELDS.find((field) => field.key === missingField)?.label}`);
       return;
     }
 
     if (!importDocumentName.trim()) {
-      setError('Add a document name for the imported codes');
+      setError(t("Add a document name for the imported codes"));
       return;
     }
 
@@ -935,7 +743,7 @@ export default function ImportExportPage() {
         })
         .filter((row) => row.codeName && row.snippet);
 
-      if (rows.length === 0) throw new Error('No importable rows found in the CSV');
+      if (rows.length === 0) throw new Error(t("No importable rows found in the CSV"));
 
       const token = localStorage.getItem('accessToken');
       const res = await fetch(apiUrl(`/projects/${projectId}/documents/import-codings`), {
@@ -951,11 +759,10 @@ export default function ImportExportPage() {
       });
 
       if (!res.ok) {
-        const message = await res.text();
-        throw new Error(message || 'Failed to import coded rows');
+        throw new Error(await getApiError(res, t('Failed to import coded rows')));
       }
 
-      setSuccess(`Imported ${rows.length} coded excerpts into "${importDocumentName.trim()}".`);
+      setSuccess(`${t("Imported coded excerpts")}: ${rows.length} → ${importDocumentName.trim()}`);
       setCsvHeaders([]);
       setCsvRows([]);
       setColumnMapping(EMPTY_MAPPING);
@@ -973,8 +780,8 @@ export default function ImportExportPage() {
       <section className="container page-stack">
         <header className="page-heading">
           <div>
-            <h2>Import / Export</h2>
-            <p>Import mapped CSV coding data or export coded excerpts for spreadsheet tools.</p>
+            <h2>{t("Import / Export")}</h2>
+            <p>{t("Import mapped CSV coding data or export coded excerpts for spreadsheet tools.")}</p>
           </div>
         </header>
 
@@ -983,26 +790,20 @@ export default function ImportExportPage() {
 
         <div className="card import-card">
           <div>
-            <strong>Import coded CSV</strong>
-            <p style={{ color: 'var(--muted)' }}>
-              Upload a CSV, map its columns, name the imported document, then add its codings to Data View.
-            </p>
+            <strong>{t("Import coded CSV")}</strong>
+            <p style={{ color: 'var(--muted)' }}>{t("Upload a CSV, map its columns, name the imported document, then add its codings to Data View.")}</p>
           </div>
 
-          <label className="panel-label">
-            CSV file
-            <input type="file" accept=".csv,text/csv" onChange={handleImportFile} />
+          <label className="panel-label">{t("CSV file")}<input type="file" accept=".csv,text/csv" onChange={handleImportFile} />
           </label>
 
           {csvHeaders.length > 0 && (
             <>
-              <label className="panel-label">
-                Imported document name
-                <input
+              <label className="panel-label">{t("Imported document name")}<input
                   type="text"
                   value={importDocumentName}
                   onChange={(event) => setImportDocumentName(event.target.value)}
-                  placeholder="Document name in OPEN_TA"
+                  placeholder={t("Document name in OPEN_TA")}
                 />
               </label>
 
@@ -1011,7 +812,7 @@ export default function ImportExportPage() {
                   <label key={field.key}>
                     {field.label}
                     <select value={columnMapping[field.key]} onChange={(event) => updateMapping(field.key, event.target.value)}>
-                      <option value="">Select CSV column</option>
+                      <option value="">{t("Select CSV column")}</option>
                       {csvHeaders.map((header) => (
                         <option value={header} key={header}>
                           {header}
@@ -1023,17 +824,17 @@ export default function ImportExportPage() {
               </div>
 
               <div className="import-preview">
-                <small>{csvRows.length} CSV rows found</small>
+                <small>{csvRows.length}{' '}{t("CSV rows found")}</small>
                 {csvRows.slice(0, 3).map((row, index) => (
                   <div key={`${index}-${row[csvHeaders[0]] ?? ''}`}>
-                    <strong>{columnMapping.codeName ? row[columnMapping.codeName] : 'Code preview'}</strong>
-                    <span>{columnMapping.snippet ? row[columnMapping.snippet] : 'Marked text preview'}</span>
+                    <strong>{columnMapping.codeName ? row[columnMapping.codeName] : t("Code preview")}</strong>
+                    <span>{columnMapping.snippet ? row[columnMapping.snippet] : t("Marked text preview")}</span>
                   </div>
                 ))}
               </div>
 
               <button type="button" onClick={handleImportCodings} disabled={isImporting}>
-                {isImporting ? 'Importing...' : 'Import mapped codings'}
+                {isImporting ? t("Importing...") : t("Import mapped codings")}
               </button>
             </>
           )}
@@ -1041,36 +842,30 @@ export default function ImportExportPage() {
 
         <div className="card" style={{ display: 'grid', gap: '0.8rem' }}>
           <div>
-            <strong>Coding results</strong>
-            <p style={{ color: 'var(--muted)' }}>
-              Columns: document_id, document_name, analyzed_text, start_string, end_string, code,
-              code_description, document theme, doc theme layer 2, doc theme layer 3, global theme,
-              global theme layer 2, global theme layer 3.
-            </p>
+            <strong>{t("Coding results")}</strong>
+            <p style={{ color: 'var(--muted)' }}>{t("Columns: document_id, document_name, analyzed_text, start_string, end_string, code, code_description, document theme, doc theme layer 2, doc theme layer 3, global theme, global theme layer 2, global theme layer 3.")}</p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button type="button" onClick={handleExportCsv} disabled={isExporting}>
-              {isExporting ? 'Exporting...' : 'Export CSV'}
+              {isExporting ? t("Exporting...") : t("Export CSV")}
             </button>
             <button type="button" onClick={handleExportXlsx} disabled={isExporting}>
-              {isExporting ? 'Exporting...' : 'Export XLSX'}
+              {isExporting ? t("Exporting...") : t("Export XLSX")}
             </button>
           </div>
         </div>
 
         <div className="card" style={{ display: 'grid', gap: '0.8rem' }}>
           <div>
-            <strong>Finished report</strong>
-            <p style={{ color: 'var(--muted)' }}>
-              Export the saved report sections from the latest global theme layer as a PDF or Word document.
-            </p>
+            <strong>{t("Finished report")}</strong>
+            <p style={{ color: 'var(--muted)' }}>{t("Export the saved report sections from the latest global theme layer as a PDF or Word document.")}</p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button type="button" onClick={handleExportReportPdf} disabled={isExporting}>
-              {isExporting ? 'Exporting...' : 'Export report PDF'}
+              {isExporting ? t("Exporting...") : t("Export report PDF")}
             </button>
             <button type="button" onClick={handleExportReportDocx} disabled={isExporting}>
-              {isExporting ? 'Exporting...' : 'Export report DOCX'}
+              {isExporting ? t("Exporting...") : t("Export report DOCX")}
             </button>
           </div>
         </div>

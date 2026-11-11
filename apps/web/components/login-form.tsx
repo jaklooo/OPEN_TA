@@ -1,4 +1,6 @@
 'use client';
+import { t } from '@/lib/i18n';
+
 
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
@@ -20,18 +22,16 @@ export function LoginForm() {
       await login(email, password);
       router.push('/projects');
     } catch (err) {
-      setError((err as Error).message || 'Login failed');
+      setError((err as Error).message || t("Login failed"));
     }
   };
 
   return (
     <div className="card" style={{ maxWidth: 480, margin: '0 auto' }}>
-      <h2>Sign In</h2>
+      <h2>{t("Sign In")}</h2>
       {error && <p style={{ color: 'var(--accent-2)' }}>{error}</p>}
       <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '0.7rem' }}>
-        <label>
-          Email
-          <input
+        <label>{t("Email")}<input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -39,9 +39,7 @@ export function LoginForm() {
             style={{ width: '100%' }}
           />
         </label>
-        <label>
-          Password
-          <input
+        <label>{t("Password")}<input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -50,11 +48,10 @@ export function LoginForm() {
           />
         </label>
         <button type="submit" disabled={isLoading}>
-          {isLoading ? 'Signing in...' : 'Sign In'}
+          {isLoading ? t("Signing in...") : t("Sign In")}
         </button>
       </form>
-      <p style={{ marginTop: '1rem', color: 'var(--muted)' }}>
-        No account? <Link href="/register">Create one</Link>
+      <p style={{ marginTop: '1rem', color: 'var(--muted)' }}>{t("No account?")}<Link href="/register">{t("Create one")}</Link>
       </p>
     </div>
   );

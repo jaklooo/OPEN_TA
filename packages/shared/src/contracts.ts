@@ -4,6 +4,7 @@ export const projectSchema = z.object({
   id: z.string(),
   name: z.string().min(2),
   description: z.string().optional(),
+  parentId: z.string().nullable().optional(),
   createdAt: z.string()
 });
 

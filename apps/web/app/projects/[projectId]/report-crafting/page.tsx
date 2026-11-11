@@ -1,4 +1,6 @@
 'use client';
+import { t } from '@/lib/i18n';
+
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
@@ -87,7 +89,7 @@ export default function ReportCraftingPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (!res.ok) throw new Error('Failed to fetch report themes');
+      if (!res.ok) throw new Error(t("Failed to fetch report themes"));
       const data: ReportThemeResponse = await res.json();
       setLayer(data.layer);
       setThemes(data.themes);
@@ -135,7 +137,7 @@ export default function ReportCraftingPage() {
         body: JSON.stringify({ content: draft })
       });
 
-      if (!res.ok) throw new Error('Failed to save report');
+      if (!res.ok) throw new Error(t("Failed to save report"));
       const saved: { content: string; updatedAt: string } = await res.json();
       setThemes((prev) =>
         prev.map((theme) =>
@@ -144,7 +146,7 @@ export default function ReportCraftingPage() {
             : theme
         )
       );
-      setSuccess('Report saved.');
+      setSuccess(t("Report saved."));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -158,22 +160,20 @@ export default function ReportCraftingPage() {
       <section className="container page-stack">
         <header className="page-heading">
           <div>
-            <h2>Report crafting</h2>
-            <p>Write report sections from the latest available global theme layer.</p>
+            <h2>{t("Report crafting")}</h2>
+            <p>{t("Write report sections from the latest available global theme layer.")}</p>
           </div>
-          {layer && <span className="report-layer-pill">Global layer {layer}</span>}
+          {layer && <span className="report-layer-pill">{t("Global layer")}{' '}{layer}</span>}
         </header>
 
         {error && <p style={{ color: 'var(--accent-2)' }}>{error}</p>}
 
         {isLoading ? (
-          <p>Loading report themes...</p>
+          <p>{t("Loading report themes...")}</p>
         ) : themes.length === 0 ? (
           <div className="card">
-            <strong>No global themes available</strong>
-            <p style={{ color: 'var(--muted)' }}>
-              Create at least one global theme in Thematic Analysis before writing the report.
-            </p>
+            <strong>{t("No global themes available")}</strong>
+            <p style={{ color: 'var(--muted)' }}>{t("Create at least one global theme in Thematic Analysis before writing the report.")}</p>
           </div>
         ) : (
           <div className="report-card-grid">
@@ -191,8 +191,8 @@ export default function ReportCraftingPage() {
                   <span>
                     <strong>{theme.name}</strong>
                     <small>
-                      {theme.totalCodeCount} codes / {theme.sourceCount} sources /{' '}
-                      {hasReport ? 'report saved' : 'empty report'}
+                      {theme.totalCodeCount}{' '}{t("codes /")}{' '}{theme.sourceCount}{' '}{t("sources /")}{' '}
+                      {hasReport ? t("report saved") : t("empty report")}
                     </small>
                   </span>
                 </button>
@@ -204,25 +204,22 @@ export default function ReportCraftingPage() {
 
       {selectedTheme && (
         <div className="report-modal" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
-          <button type="button" className="report-modal-backdrop" aria-label="Close report editor" onClick={closeTheme} />
+          <button type="button" className="report-modal-backdrop" aria-label={t("Close report editor")} onClick={closeTheme} />
           <section className="report-modal-panel">
             <header className="report-modal-header">
               <div>
                 <h3 id="report-modal-title">{selectedTheme.name}</h3>
                 <div className="report-source-summary">
                   <span>
-                    {selectedTheme.totalCodeCount} codes in this theme / from {selectedTheme.sourceCount} sources
-                  </span>
+                    {selectedTheme.totalCodeCount}{' '}{t("codes in this theme / from")}{' '}{selectedTheme.sourceCount}{' '}{t("sources")}</span>
                   {selectedTheme.sources.length > 0 && (
                     <button type="button" className="link-button" onClick={() => setShowSources((value) => !value)}>
-                      {showSources ? 'Hide sources' : 'Show sources'}
+                      {showSources ? t("Hide sources") : t("Show sources")}
                     </button>
                   )}
                 </div>
               </div>
-              <button type="button" className="ghost-button" onClick={closeTheme}>
-                Close
-              </button>
+              <button type="button" className="ghost-button" onClick={closeTheme}>{t("Close")}</button>
             </header>
 
             {showSources && (
@@ -235,7 +232,7 @@ export default function ReportCraftingPage() {
 
             <div className="report-code-list">
               {selectedTheme.codes.length === 0 ? (
-                <span>No codes linked to this theme yet.</span>
+                <span>{t("No codes linked to this theme yet.")}</span>
               ) : (
                 selectedTheme.codes.map((code) => (
                   <button
@@ -248,7 +245,7 @@ export default function ReportCraftingPage() {
                         openCode(code.id);
                       }
                     }}
-                    title="Double-click to open code details"
+                    title={t("Double-click to open code details")}
                   >
                     {code.name}
                   </button>
@@ -256,12 +253,10 @@ export default function ReportCraftingPage() {
               )}
             </div>
 
-            <label className="report-editor-label">
-              Report text
-              <textarea
+            <label className="report-editor-label">{t("Report text")}<textarea
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
-                placeholder="Write this theme's report section..."
+                placeholder={t("Write this theme's report section...")}
                 rows={14}
               />
             </label>
@@ -269,7 +264,7 @@ export default function ReportCraftingPage() {
             <footer className="report-modal-actions">
               {success && <span>{success}</span>}
               <button type="button" onClick={saveReport} disabled={isSaving}>
-                {isSaving ? 'Saving...' : 'Save report'}
+                {isSaving ? t("Saving...") : t("Save report")}
               </button>
             </footer>
           </section>
@@ -281,28 +276,26 @@ export default function ReportCraftingPage() {
           <button
             type="button"
             className="summary-code-backdrop"
-            aria-label="Close code detail"
+            aria-label={t("Close code detail")}
             onClick={closeCode}
           />
           <section className="summary-code-detail-panel">
             <header className="summary-code-detail-header">
               <div>
                 <h3 id="report-code-title">{selectedCode.name}</h3>
-                <p>{selectedCode.description?.trim() || 'No description saved for this code.'}</p>
+                <p>{selectedCode.description?.trim() || t("No description saved for this code.")}</p>
               </div>
-              <button type="button" className="ghost-button" onClick={closeCode}>
-                Close
-              </button>
+              <button type="button" className="ghost-button" onClick={closeCode}>{t("Close")}</button>
             </header>
 
-            <section className="summary-code-excerpts" aria-label="Coded excerpts">
+            <section className="summary-code-excerpts" aria-label={t("Coded excerpts")}>
               {selectedCode.excerpts.length === 0 ? (
-                <p>No coded excerpts found for this code.</p>
+                <p>{t("No coded excerpts found for this code.")}</p>
               ) : (
                 selectedCode.excerpts.map((excerpt) => (
                   <article key={excerpt.id}>
                     <blockquote>{excerpt.snippet}</blockquote>
-                    <small>Source: {excerpt.documentTitle}</small>
+                    <small>{t("Source:")}{' '}{excerpt.documentTitle}</small>
                   </article>
                 ))
               )}

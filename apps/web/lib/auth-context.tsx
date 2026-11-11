@@ -1,4 +1,6 @@
 'use client';
+import { t, localeTag } from '@/lib/i18n';
+
 
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { apiUrl, getApiError } from './api';
@@ -74,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({ email, password, displayName })
         });
 
-        if (!res.ok) throw new Error(await getApiError(res, 'Registration failed'));
+        if (!res.ok) throw new Error(await getApiError(res, t("Registration failed")));
 
         const data = await res.json();
         setUser(data.user);
@@ -97,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ email, password })
       });
 
-      if (!res.ok) throw new Error(await getApiError(res, 'Login failed'));
+      if (!res.ok) throw new Error(await getApiError(res, t("Login failed")));
 
       const data = await res.json();
       setUser(data.user);

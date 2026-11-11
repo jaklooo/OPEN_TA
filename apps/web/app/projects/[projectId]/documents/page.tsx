@@ -1,4 +1,6 @@
 'use client';
+import { t, localeTag } from '@/lib/i18n';
+
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -38,7 +40,7 @@ export default function DocumentsPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (!res.ok) throw new Error('Failed to fetch documents');
+      if (!res.ok) throw new Error(t("Failed to fetch documents"));
       const data = await res.json();
       setDocuments(data);
     } catch (err) {
@@ -54,7 +56,7 @@ export default function DocumentsPage() {
   };
 
   const handleDeleteDocument = async (documentId: string) => {
-    const shouldDelete = window.confirm('Delete this document? Existing codings for it will be removed too.');
+    const shouldDelete = window.confirm(t("Delete this document? Existing codings for it will be removed too."));
     if (!shouldDelete) return;
 
     try {
@@ -65,7 +67,7 @@ export default function DocumentsPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (!res.ok) throw new Error('Failed to delete document');
+      if (!res.ok) throw new Error(t("Failed to delete document"));
       setDocuments((prev) => prev.filter((doc) => doc.id !== documentId));
     } catch (err) {
       setError((err as Error).message);
@@ -86,7 +88,7 @@ export default function DocumentsPage() {
   const handleUpdateDocumentTitle = async (documentId: string) => {
     const title = editingTitle.trim();
     if (title.length < 2) {
-      setError('Document title must be at least 2 characters.');
+      setError(t("Document title must be at least 2 characters."));
       return;
     }
 
@@ -104,7 +106,7 @@ export default function DocumentsPage() {
       });
 
       if (!res.ok) {
-        throw new Error(await getApiError(res, 'Failed to update document'));
+        throw new Error(await getApiError(res, t("Failed to update document")));
       }
 
       const updatedDocument = await res.json();
@@ -123,12 +125,10 @@ export default function DocumentsPage() {
       <section className="container page-stack">
         <header className="page-heading">
           <div>
-            <h2>Documents</h2>
-            <p>Upload, paste, review, and remove source documents for this project.</p>
+            <h2>{t("Documents")}</h2>
+            <p>{t("Upload, paste, review, and remove source documents for this project.")}</p>
           </div>
-          <Link className="nav-link" href={`/projects/${projectId}/coding`}>
-            Open Coding
-          </Link>
+          <Link className="nav-link" href={`/projects/${projectId}/coding`}>{t("Open Coding")}</Link>
         </header>
 
         <DocumentUpload projectId={projectId} onDocumentCreated={handleDocumentCreated} />
@@ -136,11 +136,11 @@ export default function DocumentsPage() {
         {error && <p style={{ color: 'var(--accent-2)' }}>{error}</p>}
 
         <section>
-          <h3>Document Library</h3>
+          <h3>{t("Document Library")}</h3>
           {isLoading ? (
-            <p>Loading documents...</p>
+            <p>{t("Loading documents...")}</p>
           ) : documents.length === 0 ? (
-            <p style={{ color: 'var(--muted)' }}>No documents yet. Add one above.</p>
+            <p style={{ color: 'var(--muted)' }}>{t("No documents yet. Add one above.")}</p>
           ) : (
             <div className="document-list">
               {documents.map((doc) => (
@@ -149,7 +149,7 @@ export default function DocumentsPage() {
                     {editingDocumentId === doc.id ? (
                       <div className="document-title-edit">
                         <label>
-                          <span className="sr-only">Document title</span>
+                          <span className="sr-only">{t("Document title")}</span>
                           <input
                             type="text"
                             value={editingTitle}
@@ -172,11 +172,9 @@ export default function DocumentsPage() {
                             onClick={() => handleUpdateDocumentTitle(doc.id)}
                             disabled={savingDocumentId === doc.id}
                           >
-                            {savingDocumentId === doc.id ? 'Saving...' : 'Save'}
+                            {savingDocumentId === doc.id ? t("Saving...") : t("Save")}
                           </button>
-                          <button type="button" className="ghost-button" onClick={cancelEditingDocument}>
-                            Cancel
-                          </button>
+                          <button type="button" className="ghost-button" onClick={cancelEditingDocument}>{t("Cancel")}</button>
                         </div>
                       </div>
                     ) : (
@@ -184,31 +182,23 @@ export default function DocumentsPage() {
                     )}
                     <p>
                       {doc.sourceType === 'IMPORTED_CODES'
-                        ? 'Imported codes only'
+                        ? t("Imported codes only")
                         : `${doc.plainText.slice(0, 180)}${doc.plainText.length > 180 ? '...' : ''}`}
                     </p>
                     <small>
-                      {doc.sourceType} · {new Date(doc.createdAt).toLocaleDateString()}
+                      {t(doc.sourceType)} · {new Date(doc.createdAt).toLocaleDateString(localeTag())}
                     </small>
                   </div>
                   <div className="document-row-actions">
                     {editingDocumentId !== doc.id && (
-                      <button type="button" className="ghost-button" onClick={() => startEditingDocument(doc)}>
-                        Edit
-                      </button>
+                      <button type="button" className="ghost-button" onClick={() => startEditingDocument(doc)}>{t("Edit")}</button>
                     )}
                     {doc.sourceType === 'IMPORTED_CODES' ? (
-                      <Link className="nav-link" href={`/projects/${projectId}/data-view`}>
-                        View Data
-                      </Link>
+                      <Link className="nav-link" href={`/projects/${projectId}/data-view`}>{t("View Data")}</Link>
                     ) : (
-                      <Link className="nav-link" href={`/projects/${projectId}/coding?documentId=${doc.id}`}>
-                        Code
-                      </Link>
+                      <Link className="nav-link" href={`/projects/${projectId}/coding?documentId=${doc.id}`}>{t("Code")}</Link>
                     )}
-                    <button type="button" onClick={() => handleDeleteDocument(doc.id)}>
-                      Delete
-                    </button>
+                    <button type="button" onClick={() => handleDeleteDocument(doc.id)}>{t("Delete")}</button>
                   </div>
                 </article>
               ))}

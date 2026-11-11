@@ -1,7 +1,9 @@
 'use client';
+import { t } from '@/lib/i18n';
+
 
 import { useState } from 'react';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, getApiError } from '@/lib/api';
 
 interface DocumentUploadProps {
   projectId: string;
@@ -49,12 +51,12 @@ export function DocumentUpload({ projectId, onDocumentCreated }: DocumentUploadP
         })
       });
 
-      if (!res.ok) throw new Error('Failed to create document');
+      if (!res.ok) throw new Error(t("Failed to create document"));
       const createdDocument = await res.json();
 
       setPasteTitle('');
       setContent('');
-      setSuccess('Document added to library.');
+      setSuccess(t("Document added to library."));
       onDocumentCreated?.(createdDocument);
     } catch (err) {
       setError((err as Error).message);
@@ -66,7 +68,7 @@ export function DocumentUpload({ projectId, onDocumentCreated }: DocumentUploadP
   const handleFileUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadTitle.trim() || !documentFile) {
-      setError('Choose a file and add a document title.');
+      setError(t("Choose a file and add a document title."));
       return;
     }
 
@@ -89,8 +91,8 @@ export function DocumentUpload({ projectId, onDocumentCreated }: DocumentUploadP
       });
 
       if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(body?.message ?? 'Failed to upload document');
+        const message = await getApiError(res, t('Failed to upload document'));
+        throw new Error(message);
       }
 
       const createdDocument = await res.json();
@@ -98,7 +100,7 @@ export function DocumentUpload({ projectId, onDocumentCreated }: DocumentUploadP
       setUploadTitle('');
       setDocumentFile(null);
       setFileInputKey((value) => value + 1);
-      setSuccess('Document uploaded and added to library.');
+      setSuccess(t("Document uploaded and added to library."));
       onDocumentCreated?.(createdDocument);
     } catch (err) {
       setError((err as Error).message);
@@ -109,50 +111,42 @@ export function DocumentUpload({ projectId, onDocumentCreated }: DocumentUploadP
 
   return (
     <div className="card">
-      <h3 style={{ marginTop: 0 }}>Add Document</h3>
+      <h3 style={{ marginTop: 0 }}>{t("Add Document")}</h3>
       {error && <p style={{ color: 'var(--accent-2)' }}>{error}</p>}
       {success && <p style={{ color: 'var(--accent)' }}>{success}</p>}
       <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '0.7rem' }}>
-        <label>
-          Document Title
-          <input
+        <label>{t("Document Title")}<input
             type="text"
-            placeholder="e.g., Interview Transcript"
+            placeholder={t("e.g., Interview Transcript")}
             value={pasteTitle}
             onChange={(e) => setPasteTitle(e.target.value)}
             style={{ width: '100%' }}
           />
         </label>
-        <label>
-          Paste Text Content
-          <textarea
-            placeholder="Paste your document text here..."
+        <label>{t("Paste Text Content")}<textarea
+            placeholder={t("Paste your document text here...")}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             style={{ width: '100%', minHeight: 200 }}
           />
         </label>
         <button type="submit" disabled={isLoading}>
-          {isLoading ? 'Adding...' : 'Add Document'}
+          {isLoading ? t("Adding...") : t("Add Document")}
         </button>
       </form>
 
       <hr style={{ margin: '1rem 0' }} />
 
       <form onSubmit={handleFileUpload} style={{ display: 'grid', gap: '0.7rem' }}>
-        <label>
-          Document Title
-          <input
+        <label>{t("Document Title")}<input
             type="text"
-            placeholder="Auto-filled from file name"
+            placeholder={t("Auto-filled from file name")}
             value={uploadTitle}
             onChange={(e) => setUploadTitle(e.target.value)}
             style={{ width: '100%' }}
           />
         </label>
-        <label>
-          Upload File
-          <input
+        <label>{t("Upload File")}<input
             key={fileInputKey}
             type="file"
             accept=".txt,.docx,.pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
@@ -167,7 +161,7 @@ export function DocumentUpload({ projectId, onDocumentCreated }: DocumentUploadP
           />
         </label>
         <button type="submit" disabled={isLoading || !documentFile || !uploadTitle.trim()}>
-          {isLoading ? 'Uploading...' : 'Upload TXT / DOCX / PDF'}
+          {isLoading ? t("Uploading...") : t("Upload TXT / DOCX / PDF")}
         </button>
       </form>
     </div>

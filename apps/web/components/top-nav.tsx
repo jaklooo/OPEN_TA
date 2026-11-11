@@ -1,5 +1,9 @@
 'use client';
+import { t } from '@/lib/i18n';
 
+
+import { LanguageSwitcher } from '@/components/language-provider';
+import { projectPath } from '@/lib/project-tree';
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -9,6 +13,7 @@ import { useAuth } from '@/lib/auth-context';
 interface Project {
   id: string;
   name: string;
+  parentId?: string | null;
 }
 
 export function TopNav() {
@@ -22,13 +27,14 @@ export function TopNav() {
   const [projects, setProjects] = useState<Project[]>([]);
   const base = projectId ? `/projects/${projectId}` : '/projects';
   const items = [
-    { href: `${base}/documents`, label: 'Documents' },
-    { href: `${base}/coding`, label: 'Coding' },
-    { href: `${base}/thematic-analysis`, label: 'Thematic Analysis' },
-    { href: `${base}/report-crafting`, label: 'Report crafting' },
-    { href: `${base}/data-view`, label: 'Data View' },
-    { href: `${base}/import-export`, label: 'Import / Export' }
-  ];
+    { href: '/cross-projects', label: t('Cross-project analytics') },
+    { href: `${base}/documents`, label: t("Documents") },
+    { href: `${base}/coding`, label: t("Coding") },
+    { href: `${base}/thematic-analysis`, label: t("Thematic Analysis") },
+    { href: `${base}/report-crafting`, label: t("Report crafting") },
+    { href: `${base}/data-view`, label: t("Data View") },
+    { href: `${base}/import-export`, label: t("Import / Export") }
+  ].filter((item) => projectId || item.href === '/cross-projects');
   const isActiveItem = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   useEffect(() => {
@@ -99,13 +105,11 @@ export function TopNav() {
             aria-expanded={isProjectMenuOpen}
             aria-haspopup="menu"
             onClick={() => setIsProjectMenuOpen((value) => !value)}
-          >
-            Change project
-          </button>
+          >{t("Change project")}</button>
           {isProjectMenuOpen && (
             <div className="project-switcher-menu" role="menu">
               {projects.length === 0 ? (
-                <span>No projects</span>
+                <span>{t("No projects")}</span>
               ) : (
                 projects.map((project) => (
                   <button
@@ -115,7 +119,7 @@ export function TopNav() {
                     onClick={() => handleProjectChange(project.id)}
                     key={project.id}
                   >
-                    {project.name}
+                    {projectPath(project, projects)}
                   </button>
                 ))
               )}
@@ -148,7 +152,8 @@ export function TopNav() {
           );
         })}
       </nav>
-      <button type="button" className="logout-button" aria-label="Log out" title="Log out" onClick={handleLogout}>
+      <LanguageSwitcher />
+      <button type="button" className="logout-button" aria-label={t("Log out")} title={t("Log out")} onClick={handleLogout}>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
           <path d="M16 17l5-5-5-5" />

@@ -13,6 +13,10 @@ class CreateProjectDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsOptional()
+  parentId?: string | null;
 }
 
 class UpdateProjectDto {
@@ -24,6 +28,10 @@ class UpdateProjectDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsOptional()
+  parentId?: string | null;
 }
 
 @Controller('projects')
@@ -38,7 +46,7 @@ export class ProjectsController {
 
   @Post()
   async create(@CurrentUser() user: JwtPayload, @Body() body: CreateProjectDto) {
-    return this.projectsService.create(user.sub, body.name, body.description);
+    return this.projectsService.create(user.sub, body.name, body.description, body.parentId);
   }
 
   @Get(':projectId')

@@ -1,4 +1,6 @@
 'use client';
+import { t } from '@/lib/i18n';
+
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
@@ -121,8 +123,8 @@ export default function ThematicAnalysisPage() {
         fetch(apiUrl(`/projects/${projectId}/documents`), { headers })
       ]);
 
-      if (!themesRes.ok) throw new Error('Failed to fetch themes');
-      if (!documentsRes.ok) throw new Error('Failed to fetch documents');
+      if (!themesRes.ok) throw new Error(t("Failed to fetch themes"));
+      if (!documentsRes.ok) throw new Error(t("Failed to fetch documents"));
 
       const [themesData, documentsData]: [Theme[], Document[]] = await Promise.all([
         themesRes.json(),
@@ -134,7 +136,7 @@ export default function ThematicAnalysisPage() {
           const codingsRes = await fetch(apiUrl(`/projects/${projectId}/documents/${document.id}/codings`), {
             headers
           });
-          if (!codingsRes.ok) throw new Error(`Failed to fetch codings for ${document.title}`);
+          if (!codingsRes.ok) throw new Error(`${t("Failed to fetch codings")}: ${document.title}`);
           const codings = await codingsRes.json();
           return { ...document, codings };
         })
@@ -190,9 +192,9 @@ export default function ThematicAnalysisPage() {
       if (activeLayer === 1) {
         return (selectedDocument?.codings ?? []).map((coding) => ({
           id: coding.id,
-          title: coding.code?.name ?? 'Code',
+          title: coding.code?.name ?? t("Code"),
           description: coding.snippet,
-          meta: coding.code?.description ?? 'Coded excerpt',
+          meta: coding.code?.description ?? t("Coded excerpt"),
           kind: 'coding',
           coding
         }));
@@ -203,7 +205,7 @@ export default function ThematicAnalysisPage() {
         .map((theme) => ({
           id: theme.id,
           title: theme.name,
-          meta: `Layer ${theme.layer} theme / ${getThemeCodeCount(theme)} codes`,
+          meta: `${t("Layer")} ${theme.layer} / ${getThemeCodeCount(theme)} ${t("codes")}`,
           kind: 'theme',
           theme
         }));
@@ -213,7 +215,7 @@ export default function ThematicAnalysisPage() {
       return topDocumentThemes.map((theme) => ({
         id: theme.id,
         title: theme.name,
-        meta: `${documentById.get(theme.documentId ?? '')?.title ?? 'Document'} / Layer ${theme.layer} / ${getThemeCodeCount(theme)} codes`,
+        meta: `${documentById.get(theme.documentId ?? '')?.title ?? t("Document")} / ${t("Layer")} ${theme.layer} / ${getThemeCodeCount(theme)} ${t("codes")}`,
         kind: 'theme',
         theme
       }));
@@ -224,7 +226,7 @@ export default function ThematicAnalysisPage() {
       .map((theme) => ({
         id: theme.id,
         title: theme.name,
-        meta: `Global layer ${theme.layer} theme / ${getThemeCodeCount(theme)} codes`,
+        meta: `${t("Global layer")} ${theme.layer} / ${getThemeCodeCount(theme)} ${t("codes")}`,
         kind: 'theme',
         theme
       }));
@@ -280,7 +282,7 @@ export default function ThematicAnalysisPage() {
         })
       });
 
-      if (!createRes.ok) throw new Error('Failed to create theme');
+      if (!createRes.ok) throw new Error(t("Failed to create theme"));
       const createdTheme: Theme = await createRes.json();
 
       const assignPath =
@@ -298,7 +300,7 @@ export default function ThematicAnalysisPage() {
         body: JSON.stringify(assignBody)
       });
 
-      if (!assignRes.ok) throw new Error('Failed to assign selected cards to theme');
+      if (!assignRes.ok) throw new Error(t("Failed to assign selected cards to theme"));
       const assignedTheme: Theme = await assignRes.json();
 
       setThemes((prev) => [assignedTheme, ...prev.filter((theme) => theme.id !== assignedTheme.id)]);
@@ -342,7 +344,7 @@ export default function ThematicAnalysisPage() {
         }
       );
 
-      if (!res.ok) throw new Error('Failed to add cards to existing theme');
+      if (!res.ok) throw new Error(t("Failed to add cards to existing theme"));
       updateThemeInState(await res.json());
       setSelectedItemIds([]);
       setIsAddingExistingTheme(false);
@@ -362,7 +364,7 @@ export default function ThematicAnalysisPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (!res.ok) throw new Error('Failed to delete theme');
+      if (!res.ok) throw new Error(t("Failed to delete theme"));
       setThemes((prev) => prev.filter((theme) => theme.id !== themeId));
     } catch (err) {
       setError((err as Error).message);
@@ -394,7 +396,7 @@ export default function ThematicAnalysisPage() {
         }
       );
 
-      if (!res.ok) throw new Error('Failed to update theme assignment');
+      if (!res.ok) throw new Error(t("Failed to update theme assignment"));
       updateThemeInState(await res.json());
     } catch (err) {
       setError((err as Error).message);
@@ -402,15 +404,15 @@ export default function ThematicAnalysisPage() {
   };
 
   const scopeLabel = activeDocumentId
-    ? selectedDocument?.title ?? 'Document'
-    : 'Global themes';
+    ? selectedDocument?.title ?? t("Document")
+    : t("Global themes");
   const sourceLabel = activeDocumentId
     ? activeLayer === 1
-      ? 'Code cards in this document'
-      : `Layer ${activeLayer - 1} document themes`
+      ? t("Code cards in this document")
+      : `${t("Layer")} ${activeLayer - 1}: ${t("Document Themes")}`
     : activeLayer === 1
-      ? 'Top document themes'
-      : `Layer ${activeLayer - 1} global themes`;
+      ? t("Top document themes")
+      : `${t("Layer")} ${activeLayer - 1}: ${t("Global Themes")}`;
 
   return (
     <main>
@@ -418,18 +420,16 @@ export default function ThematicAnalysisPage() {
       <section className="container page-stack">
         <header className="page-heading">
           <div>
-            <h2>Thematic Analysis</h2>
-            <p>Select cards, then group them into document or global themes.</p>
+            <h2>{t("Thematic Analysis")}</h2>
+            <p>{t("Select cards, then group them into document or global themes.")}</p>
           </div>
         </header>
 
         {error && <p style={{ color: 'var(--accent-2)' }}>{error}</p>}
 
         <div className="toolbar-row">
-          <label>
-            Scope
-            <select value={activeScope} onChange={(event) => setActiveScope(event.target.value)}>
-              <option value={GLOBAL_SCOPE}>Global themes</option>
+          <label>{t("Scope")}<select value={activeScope} onChange={(event) => setActiveScope(event.target.value)}>
+              <option value={GLOBAL_SCOPE}>{t("Global themes")}</option>
               {documents.map((document) => (
                 <option value={document.id} key={document.id}>
                   {document.title}
@@ -443,9 +443,7 @@ export default function ThematicAnalysisPage() {
               type="checkbox"
               checked={showUnthemedOnly}
               onChange={(event) => setShowUnthemedOnly(event.target.checked)}
-            />
-            Show only without theme
-          </label>
+            />{t("Show only without theme")}</label>
         </div>
 
         <div className="layer-tabs">
@@ -455,8 +453,7 @@ export default function ThematicAnalysisPage() {
               key={layer}
               className={layer === activeLayer ? 'active' : ''}
               onClick={() => setActiveLayer(layer)}
-            >
-              Layer {layer}
+            >{t("Layer")}{' '}{layer}
             </button>
           ))}
         </div>
@@ -466,8 +463,8 @@ export default function ThematicAnalysisPage() {
           onSubmit={isAddingExistingTheme ? handleAddToExistingTheme : handleCreateTheme}
         >
           <div>
-            <strong>{scopeLabel} / Layer {activeLayer}</strong>
-            <small>{selectedItemIds.length} selected</small>
+            <strong>{scopeLabel}{' '}{t("/ Layer")}{' '}{activeLayer}</strong>
+            <small>{selectedItemIds.length}{' '}{t("selected")}</small>
             <button
               type="button"
               className="text-action"
@@ -476,7 +473,7 @@ export default function ThematicAnalysisPage() {
                 setNewThemeName('');
               }}
             >
-              {isAddingExistingTheme ? 'create new theme' : 'add existing theme'}
+              {isAddingExistingTheme ? t("create new theme") : t("add existing theme")}
             </button>
           </div>
           {isAddingExistingTheme ? (
@@ -486,19 +483,18 @@ export default function ThematicAnalysisPage() {
               disabled={activeLayerThemes.length === 0}
             >
               {activeLayerThemes.length === 0 ? (
-                <option value="">No themes in this layer yet</option>
+                <option value="">{t("No themes in this layer yet")}</option>
               ) : (
                 activeLayerThemes.map((theme) => (
                   <option value={theme.id} key={theme.id}>
-                    {theme.name} ({getThemeCodeCount(theme)} codes)
-                  </option>
+                    {theme.name} ({getThemeCodeCount(theme)}{' '}{t("codes)")}</option>
                 ))
               )}
             </select>
           ) : (
             <input
               type="text"
-              placeholder="Theme name"
+              placeholder={t("Theme name")}
               value={newThemeName}
               onChange={(event) => setNewThemeName(event.target.value)}
             />
@@ -511,23 +507,23 @@ export default function ThematicAnalysisPage() {
               (isAddingExistingTheme ? !targetThemeId : !newThemeName.trim())
             }
           >
-            {isCreatingTheme ? 'Saving...' : isAddingExistingTheme ? 'Add to Theme' : '+ Theme'}
+            {isCreatingTheme ? t("Saving...") : isAddingExistingTheme ? t("Add to Theme") : '+ Theme'}
           </button>
         </form>
 
         {isLoading ? (
-          <p>Loading themes...</p>
+          <p>{t("Loading themes...")}</p>
         ) : (
           <>
             <section className="analysis-section">
               <div className="row-between">
                 <h3>{sourceLabel}</h3>
-                <small>{visibleSourceItems.length} visible cards</small>
+                <small>{visibleSourceItems.length}{' '}{t("visible cards")}</small>
               </div>
 
               {visibleSourceItems.length === 0 ? (
                 <p style={{ color: 'var(--muted)' }}>
-                  {showUnthemedOnly ? 'No unthemed cards in this layer.' : 'No cards available for this layer yet.'}
+                  {showUnthemedOnly ? t("No unthemed cards in this layer.") : t("No cards available for this layer yet.")}
                 </p>
               ) : (
                 <div className="analysis-card-grid">
@@ -564,7 +560,7 @@ export default function ThematicAnalysisPage() {
                                 {theme.name}
                                 <button
                                   type="button"
-                                  aria-label={`Remove from ${theme.name}`}
+                                  aria-label={`${t("Remove from theme")}: ${theme.name}`}
                                   onClick={() => handleRemoveItemFromTheme(theme, item.id)}
                                 >
                                   x
@@ -582,11 +578,11 @@ export default function ThematicAnalysisPage() {
 
             <section className="analysis-section">
               <div className="row-between">
-                <h3>Created themes in this layer</h3>
-                <small>{activeLayerThemes.length} themes</small>
+                <h3>{t("Created themes in this layer")}</h3>
+                <small>{activeLayerThemes.length}{' '}{t("themes")}</small>
               </div>
               {activeLayerThemes.length === 0 ? (
-                <p style={{ color: 'var(--muted)' }}>No themes in this layer yet.</p>
+                <p style={{ color: 'var(--muted)' }}>{t("No themes in this layer yet.")}</p>
               ) : (
                 <div className="theme-summary-grid">
                   {activeLayerThemes.map((theme) => (
@@ -595,13 +591,10 @@ export default function ThematicAnalysisPage() {
                         <div>
                           <strong>{theme.name}</strong>
                           <small>
-                            {getThemeCodeCount(theme)} codes
-                            {theme.parentThemeLinks.length > 0 && ` / ${theme.parentThemeLinks.length} grouped themes`}
+                            {getThemeCodeCount(theme)}{' '}{t("codes")}{' '}{theme.parentThemeLinks.length > 0 && ` / ${theme.parentThemeLinks.length} ${t("grouped themes")}`}
                           </small>
                         </div>
-                        <button type="button" onClick={() => handleDeleteTheme(theme.id)}>
-                          Delete
-                        </button>
+                        <button type="button" onClick={() => handleDeleteTheme(theme.id)}>{t("Delete")}</button>
                       </div>
                       {!activeDocumentId && theme.layer === 1 && theme.parentThemeLinks.length > 0 && (
                         <p>

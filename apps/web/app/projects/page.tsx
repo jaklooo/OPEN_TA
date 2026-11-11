@@ -1,5 +1,10 @@
 'use client';
+import { t, localeTag } from '@/lib/i18n';
 
+
+import { TopNav } from '@/components/top-nav';
+import { projectPath, descendants } from '@/lib/project-tree';
+import { getApiError } from '@/lib/api';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { apiUrl } from '@/lib/api';
@@ -11,6 +16,7 @@ interface Project {
   name: string;
   description?: string;
   createdAt: string;
+  parentId?: string | null;
 }
 
 export default function ProjectsPage() {
@@ -19,6 +25,8 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [parentId, setParentId] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
 
   useEffect(() => {
@@ -40,7 +48,7 @@ export default function ProjectsPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (!res.ok) throw new Error('Failed to fetch projects');
+      if (!res.ok) throw new Error(t("Failed to fetch projects"));
       const data = await res.json();
       setProjects(data);
     } catch (err) {
@@ -52,7 +60,9 @@ export default function ProjectsPage() {
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProjectName.trim()) return;
+    if (newProjectName.trim().length < 2 || isSaving) return;
+    setIsSaving(true);
+    setError('');
 
     try {
       const token = localStorage.getItem('accessToken');
@@ -62,19 +72,33 @@ export default function ProjectsPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ name: newProjectName })
+        body: JSON.stringify({ name: newProjectName.trim(), parentId: parentId || null })
       });
 
-      if (!res.ok) throw new Error('Failed to create project');
+      if (!res.ok) throw new Error(t("Failed to create project"));
       const newProject = await res.json();
       setProjects([newProject, ...projects]);
       setNewProjectName('');
+      setParentId('');
     } catch (err) {
       setError((err as Error).message);
-    }
+    } finally { setIsSaving(false); }
+  };
+
+  const moveProject = async (id: string, nextParentId: string) => {
+    try {
+      const res = await fetch(apiUrl(`/projects/${id}`), {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+        body: JSON.stringify({ parentId: nextParentId || null })
+      });
+      if (!res.ok) throw new Error(await getApiError(res, t('Failed to update project')));
+      const updated = await res.json();
+      setProjects((previous) => previous.map((project) => project.id === id ? updated : project));
+    } catch (err) { setError((err as Error).message); }
   };
 
   const handleDeleteProject = async (projectId: string) => {
+    if (!window.confirm(t('Delete project and its data? Subprojects will be kept as separate projects.'))) return;
     try {
       const token = localStorage.getItem('accessToken');
       const res = await fetch(apiUrl(`/projects/${projectId}`), {
@@ -84,8 +108,8 @@ export default function ProjectsPage() {
         }
       });
 
-      if (!res.ok) throw new Error('Failed to delete project');
-      setProjects((prev) => prev.filter((project) => project.id !== projectId));
+      if (!res.ok) throw new Error(t("Failed to delete project"));
+      await fetchProjects();
     } catch (err) {
       setError((err as Error).message);
     }
@@ -94,46 +118,53 @@ export default function ProjectsPage() {
   if (isAuthLoading || !user) return null;
 
   return (
-    <main className="container" style={{ padding: '2rem 0' }}>
-      <h2>My Projects</h2>
+    <><TopNav /><main className="container" style={{ padding: '2rem 0' }}>
+      <h2>{t("My Projects")}</h2>
       {error && <p style={{ color: 'var(--accent-2)' }}>{error}</p>}
 
       <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <h3 style={{ marginTop: 0 }}>Create New Project</h3>
+        <h3 style={{ marginTop: 0 }}>{t("Create New Project")}</h3>
         <form onSubmit={handleCreateProject} style={{ display: 'flex', gap: '0.5rem' }}>
           <input
             type="text"
-            placeholder="Project name..."
+            placeholder={t("Project name...")}
             value={newProjectName}
             onChange={(e) => setNewProjectName(e.target.value)}
             style={{ flex: 1 }}
           />
-          <button type="submit">Create</button>
+          <select aria-label={t('Parent project')} value={parentId} onChange={(e) => setParentId(e.target.value)}>
+            <option value="">{t('Standalone project')}</option>
+            {projects.map((project) => <option key={project.id} value={project.id}>{projectPath(project, projects)}</option>)}
+          </select>
+          <button type="submit" disabled={isSaving || newProjectName.trim().length < 2}>{t("Create")}</button>
         </form>
       </div>
 
       {isLoading ? (
-        <p>Loading projects...</p>
+        <p>{t("Loading projects...")}</p>
       ) : projects.length === 0 ? (
-        <p style={{ color: 'var(--muted)' }}>No projects yet. Create one above!</p>
+        <p style={{ color: 'var(--muted)' }}>{t("No projects yet. Create one above!")}</p>
       ) : (
         <div style={{ display: 'grid', gap: '0.8rem' }}>
-          {projects.map((project) => (
+          {[...projects].sort((a, b) => projectPath(a, projects).localeCompare(projectPath(b, projects), localeTag())).map((project) => (
             <div className="card" key={project.id}>
-              <strong>{project.name}</strong>
+              <strong>{projectPath(project, projects)}</strong>
+              <label style={{ display: 'block', marginTop: '0.5rem' }}>{t('Parent project')}
+                <select value={project.parentId || ''} onChange={(e) => moveProject(project.id, e.target.value)}>
+                  <option value="">{t('Standalone project')}</option>
+                  {projects.filter((item) => !descendants(project.id, projects).includes(item.id)).map((item) =>
+                    <option key={item.id} value={item.id}>{projectPath(item, projects)}</option>)}
+                </select>
+              </label>
               {project.description && <p style={{ color: 'var(--muted)' }}>{project.description}</p>}
               <div style={{ marginTop: '0.6rem', display: 'flex', gap: '0.5rem' }}>
-                <Link className="nav-link" href={`/projects/${project.id}/documents`}>
-                  Open
-                </Link>
-                <button type="button" onClick={() => handleDeleteProject(project.id)}>
-                  Delete
-                </button>
+                <Link className="nav-link" href={`/projects/${project.id}/documents`}>{t("Open")}</Link>
+                <button type="button" onClick={() => handleDeleteProject(project.id)}>{t("Delete")}</button>
               </div>
             </div>
           ))}
         </div>
       )}
-    </main>
+    </main></>
   );
 }

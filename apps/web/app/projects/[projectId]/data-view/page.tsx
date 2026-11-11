@@ -1,4 +1,6 @@
 'use client';
+import { t } from '@/lib/i18n';
+
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -100,6 +102,7 @@ export default function DataViewPage() {
   const [editingCodeName, setEditingCodeName] = useState('');
   const [editingCodeDescription, setEditingCodeDescription] = useState('');
   const [error, setError] = useState('');
+  const [exporting, setExporting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const selectedDocument = documents.find((document) => document.id === activeScope) ?? null;
@@ -140,10 +143,10 @@ export default function DataViewPage() {
         fetch(apiUrl(`/projects/${projectId}/reports/global-themes`), { headers })
       ]);
 
-      if (!documentsRes.ok) throw new Error('Failed to fetch documents');
-      if (!codesRes.ok) throw new Error('Failed to fetch codes');
-      if (!themesRes.ok) throw new Error('Failed to fetch themes');
-      if (!reportThemesRes.ok) throw new Error('Failed to fetch report themes');
+      if (!documentsRes.ok) throw new Error(t("Failed to fetch documents"));
+      if (!codesRes.ok) throw new Error(t("Failed to fetch codes"));
+      if (!themesRes.ok) throw new Error(t("Failed to fetch themes"));
+      if (!reportThemesRes.ok) throw new Error(t("Failed to fetch report themes"));
 
       const [documentsData, codesData, themesData, reportThemesData]: [
         Document[],
@@ -162,7 +165,7 @@ export default function DataViewPage() {
           const codingsRes = await fetch(apiUrl(`/projects/${projectId}/documents/${document.id}/codings`), {
             headers
           });
-          if (!codingsRes.ok) throw new Error(`Failed to fetch codings for ${document.title}`);
+          if (!codingsRes.ok) throw new Error(`${t("Failed to fetch codings")}: ${document.title}`);
           const codings = await codingsRes.json();
           return { ...document, codings };
         })
@@ -215,7 +218,7 @@ export default function DataViewPage() {
   };
 
   const getThemeScopeLabel = (theme: Theme) =>
-    theme.documentId ? documentById.get(theme.documentId)?.title ?? 'Document theme' : 'Global theme';
+    theme.documentId ? documentById.get(theme.documentId)?.title ?? t("Document theme") : t("Global theme");
 
   const getThemeCodingIds = (theme: Theme, visitedThemeIds = new Set<string>()): Set<string> => {
     if (visitedThemeIds.has(theme.id)) return new Set();
@@ -271,7 +274,7 @@ export default function DataViewPage() {
     visitedThemeIds.add(theme.id);
 
     const names = [
-      ...theme.codingLinks.map((link) => link.coding.code?.name ?? 'Code'),
+      ...theme.codingLinks.map((link) => link.coding.code?.name ?? t("Code")),
       ...theme.codeLinks.map((link) => link.code.name)
     ];
 
@@ -302,7 +305,7 @@ export default function DataViewPage() {
         })
       });
 
-      if (!res.ok) throw new Error('Failed to update code');
+      if (!res.ok) throw new Error(t("Failed to update code"));
       const updatedCode = await res.json();
       setCodes((prev) => prev.map((code) => (code.id === codeId ? updatedCode : code)));
       setDocuments((prev) =>
@@ -320,7 +323,7 @@ export default function DataViewPage() {
   };
 
   const handleDeleteCode = async (codeId: string) => {
-    const shouldDelete = window.confirm('Delete this code and every coding that uses it?');
+    const shouldDelete = window.confirm(t("Delete this code and every coding that uses it?"));
     if (!shouldDelete) return;
 
     try {
@@ -331,7 +334,7 @@ export default function DataViewPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (!res.ok) throw new Error('Failed to delete code');
+      if (!res.ok) throw new Error(t("Failed to delete code"));
       setCodes((prev) => prev.filter((code) => code.id !== codeId));
       setDocuments((prev) =>
         prev.map((document) => ({
@@ -350,13 +353,11 @@ export default function DataViewPage() {
       <section className="container page-stack">
         <header className="page-heading">
           <div>
-            <h2>Data View</h2>
-            <p>Choose a document-level view or move into project analytics.</p>
+            <h2>{t("Data View")}</h2>
+            <p>{t("Choose a document-level view or move into project analytics.")}</p>
           </div>
           {activeView !== 'home' && (
-            <button type="button" className="ghost-button" onClick={() => setActiveView('home')}>
-              Back to Data View
-            </button>
+            <button type="button" className="ghost-button" onClick={() => setActiveView('home')}>{t("Back to Data View")}</button>
           )}
         </header>
 
@@ -365,17 +366,17 @@ export default function DataViewPage() {
         {activeView === 'home' ? (
           <section className="data-view-launch-grid">
             <button type="button" className="data-view-launch-tile" onClick={() => setActiveView('documents')}>
-              <span>Document data view</span>
-              <small>Browse codes, coded excerpts, and themes globally or per document.</small>
+              <span>{t("Document data view")}</span>
+              <small>{t("Browse codes, coded excerpts, and themes globally or per document.")}</small>
             </button>
             <button type="button" className="data-view-launch-tile" onClick={() => setActiveView('analytics')}>
-              <span>Analytics</span>
-              <small>Open the analytical workspace for project-level outputs.</small>
+              <span>{t("Analytics")}</span>
+              <small>{t("Open the analytical workspace for project-level outputs.")}</small>
             </button>
           </section>
         ) : activeView === 'analytics' ? (
           isLoading ? (
-            <p>Loading analytics...</p>
+            <p>{t("Loading analytics...")}</p>
           ) : activeAnalyticsView === 'home' ? (
             <section className="data-view-launch-grid">
               <button
@@ -383,33 +384,40 @@ export default function DataViewPage() {
                 className="data-view-launch-tile"
                 onClick={() => setActiveAnalyticsView('summary-table')}
               >
-                <span>Summary table</span>
-                <small>Review the latest global theme layer by total codes and contributing documents.</small>
+                <span>{t("Summary table")}</span>
+                <small>{t("Review the latest global theme layer by total codes and contributing documents.")}</small>
               </button>
             </section>
           ) : (
             <section className="card analytics-table-card">
               <div className="row-between">
                 <div>
-                  <h3>Summary table</h3>
-                  <p>Latest global themes ordered by total codes.</p>
+                  <h3>{t("Summary table")}</h3>
+                  <p>{t("Latest global themes ordered by total codes.")}</p>
                 </div>
-                <button type="button" className="ghost-button" onClick={() => setActiveAnalyticsView('home')}>
-                  Back to Analytics
-                </button>
+                <button type="button" className="ghost-button" onClick={() => setActiveAnalyticsView('home')}>{t("Back to Analytics")}</button>
               </div>
 
+              <button disabled={exporting || !summaryRows.length} onClick={async () => {
+                try {
+                  setExporting(true);
+                  const { exportTablePdf } = await import('@/lib/pdf-export');
+                  await exportTablePdf(t('Summary table'), ['ID', t('Theme'), t('Codes'), t('Docs')],
+                    summaryRows.map((row, index) => [index + 1, row.theme, row.codes, row.docs]), 'open-ta-analytics.pdf');
+                } catch (err) { setError((err as Error).message); } finally { setExporting(false); }
+              }}>{exporting ? t('Exporting...') : t('Download full table as PDF')}</button>
+
               {summaryRows.length === 0 ? (
-                <p style={{ color: 'var(--muted)' }}>No global themes available yet.</p>
+                <p style={{ color: 'var(--muted)' }}>{t("No global themes available yet.")}</p>
               ) : (
                 <div className="summary-table-wrap">
                   <table className="summary-table">
                     <thead>
                       <tr>
                         <th>ID</th>
-                        <th>Theme</th>
-                        <th>Codes</th>
-                        <th>Docs</th>
+                        <th>{t("Theme")}</th>
+                        <th>{t("Codes")}</th>
+                        <th>{t("Docs")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -425,7 +433,7 @@ export default function DataViewPage() {
                               openSummaryTheme(row.themeId);
                             }
                           }}
-                          title="Double-click to open theme details"
+                          title={t("Double-click to open theme details")}
                         >
                           <td>{index + 1}</td>
                           <td>
@@ -441,7 +449,7 @@ export default function DataViewPage() {
                               }}
                             >
                               <span>{row.theme}</span>
-                              <small>{row.hasReport ? 'report saved' : 'no report text'}</small>
+                              <small>{row.hasReport ? t("report saved") : t("no report text")}</small>
                             </button>
                           </td>
                           <td>{row.codes}</td>
@@ -455,14 +463,12 @@ export default function DataViewPage() {
             </section>
           )
         ) : isLoading ? (
-          <p>Loading data...</p>
+          <p>{t("Loading data...")}</p>
         ) : (
           <>
             <div className="toolbar-row">
-              <label>
-                View
-                <select value={activeScope} onChange={(event) => setActiveScope(event.target.value)}>
-                  <option value={GLOBAL_SCOPE}>Global project view</option>
+              <label>{t("View")}<select value={activeScope} onChange={(event) => setActiveScope(event.target.value)}>
+                  <option value={GLOBAL_SCOPE}>{t("Global project view")}</option>
                   {documents.map((document) => (
                     <option value={document.id} key={document.id}>
                       {document.title}
@@ -473,9 +479,9 @@ export default function DataViewPage() {
             </div>
 
             <section className="card">
-              <h3 style={{ marginTop: 0 }}>{selectedDocument ? 'Document Codes' : 'Global Codes'}</h3>
+              <h3 style={{ marginTop: 0 }}>{selectedDocument ? t("Document Codes") : t("Global Codes")}</h3>
               {visibleCodeCounts.length === 0 ? (
-                <p style={{ color: 'var(--muted)' }}>No codes yet.</p>
+                <p style={{ color: 'var(--muted)' }}>{t("No codes yet.")}</p>
               ) : (
                 <div className="data-code-grid">
                   {visibleCodeCounts.map(({ code, count }) => (
@@ -493,26 +499,18 @@ export default function DataViewPage() {
                             rows={3}
                           />
                           <div className="inline-actions">
-                            <button type="button" onClick={() => handleUpdateCode(code.id)}>
-                              Save
-                            </button>
-                            <button type="button" onClick={() => setEditingCodeId(null)}>
-                              Cancel
-                            </button>
+                            <button type="button" onClick={() => handleUpdateCode(code.id)}>{t("Save")}</button>
+                            <button type="button" onClick={() => setEditingCodeId(null)}>{t("Cancel")}</button>
                           </div>
                         </div>
                       ) : (
                         <>
                           <strong>{code.name}</strong>
                           {code.description && <p>{code.description}</p>}
-                          <small>{count} coded excerpts</small>
+                          <small>{count}{' '}{t("coded excerpts")}</small>
                           <div className="inline-actions">
-                            <button type="button" onClick={() => handleEditCode(code)}>
-                              Edit
-                            </button>
-                            <button type="button" onClick={() => handleDeleteCode(code.id)}>
-                              Delete
-                            </button>
+                            <button type="button" onClick={() => handleEditCode(code)}>{t("Edit")}</button>
+                            <button type="button" onClick={() => handleDeleteCode(code.id)}>{t("Delete")}</button>
                           </div>
                         </>
                       )}
@@ -523,21 +521,20 @@ export default function DataViewPage() {
             </section>
 
             <section className="card">
-              <h3 style={{ marginTop: 0 }}>{selectedDocument ? 'Document Themes' : 'Global Themes'}</h3>
+              <h3 style={{ marginTop: 0 }}>{selectedDocument ? t("Document Themes") : t("Global Themes")}</h3>
               {themesByLayer.length === 0 ? (
-                <p style={{ color: 'var(--muted)' }}>No themes in this view yet.</p>
+                <p style={{ color: 'var(--muted)' }}>{t("No themes in this view yet.")}</p>
               ) : (
                 <div className="theme-layer-list">
                   {themesByLayer.map(([layer, layerThemes]) => (
                     <div key={layer}>
-                      <h4>Layer {layer}</h4>
+                      <h4>{t("Layer")}{' '}{layer}</h4>
                       <div className="data-code-grid">
                         {layerThemes.map((theme) => (
                           <article key={theme.id} style={{ borderColor: theme.color }}>
                             <strong>{theme.name}</strong>
                             <small>
-                              {getThemeCodeCount(theme)} codes
-                              {theme.parentThemeLinks.length > 0 && ` / ${theme.parentThemeLinks.length} grouped themes`}
+                              {getThemeCodeCount(theme)}{' '}{t("codes")}{' '}{theme.parentThemeLinks.length > 0 && ` / ${theme.parentThemeLinks.length} ${t("grouped themes")}`}
                             </small>
                             {activeScope === GLOBAL_SCOPE && <small>{getThemeScopeLabel(theme)}</small>}
                             {getThemeCodeNames(theme).length > 0 && (
@@ -558,22 +555,22 @@ export default function DataViewPage() {
             {activeScope === GLOBAL_SCOPE && (
               <section className="document-data-list">
                 {visibleDocuments.length === 0 ? (
-                  <p style={{ color: 'var(--muted)' }}>No documents yet.</p>
+                  <p style={{ color: 'var(--muted)' }}>{t("No documents yet.")}</p>
                 ) : (
                   visibleDocuments.map((document) => (
                     <article className="card" key={document.id}>
                       <div className="row-between">
                         <h3 style={{ margin: 0 }}>{document.title}</h3>
-                        <small>{document.codings.length} coded excerpts</small>
+                        <small>{document.codings.length}{' '}{t("coded excerpts")}</small>
                       </div>
 
                       {document.codings.length === 0 ? (
-                        <p style={{ color: 'var(--muted)' }}>No codings in this document yet.</p>
+                        <p style={{ color: 'var(--muted)' }}>{t("No codings in this document yet.")}</p>
                       ) : (
                         <div className="coding-table">
                           {document.codings.map((coding) => (
                             <div key={coding.id}>
-                              <strong>{coding.code?.name ?? 'Code'}</strong>
+                              <strong>{coding.code?.name ?? t("Code")}</strong>
                               <span>{coding.code?.description ?? ''}</span>
                               <p>"{coding.snippet}"</p>
                             </div>
@@ -594,7 +591,7 @@ export default function DataViewPage() {
           <button
             type="button"
             className="report-modal-backdrop"
-            aria-label="Close summary detail"
+            aria-label={t("Close summary detail")}
             onClick={closeSummaryTheme}
           />
           <section className="summary-detail-panel">
@@ -602,32 +599,29 @@ export default function DataViewPage() {
               <div>
                 <h3 id="summary-detail-title">{selectedSummaryTheme.name}</h3>
                 <p>
-                  {selectedSummaryTheme.totalCodeCount} coded excerpts / {selectedSummaryTheme.sourceCount} sources
-                </p>
+                  {selectedSummaryTheme.totalCodeCount}{' '}{t("coded excerpts /")}{' '}{selectedSummaryTheme.sourceCount}{' '}{t("sources")}</p>
               </div>
-              <button type="button" className="ghost-button" onClick={closeSummaryTheme}>
-                Close
-              </button>
+              <button type="button" className="ghost-button" onClick={closeSummaryTheme}>{t("Close")}</button>
             </header>
 
             <div className="summary-detail-layout">
-              <section className="summary-report-pane" aria-label="Report text">
-                <h4>Report text</h4>
+              <section className="summary-report-pane" aria-label={t("Report text")}>
+                <h4>{t("Report text")}</h4>
                 <div className="summary-report-text">
                   {selectedSummaryTheme.reportContent.trim() ? (
                     selectedSummaryTheme.reportContent
                   ) : (
-                    <span>No report text saved for this theme yet.</span>
+                    <span>{t("No report text saved for this theme yet.")}</span>
                   )}
                 </div>
               </section>
 
               <aside className="summary-side-pane">
-                <section className="summary-side-section" aria-label="Codes linked to this theme">
-                  <h4>Codes</h4>
+                <section className="summary-side-section" aria-label={t("Codes linked to this theme")}>
+                  <h4>{t("Codes")}</h4>
                   <div className="summary-code-tiles">
                     {selectedSummaryTheme.codes.length === 0 ? (
-                      <span>No codes linked to this theme yet.</span>
+                      <span>{t("No codes linked to this theme yet.")}</span>
                     ) : (
                       selectedSummaryTheme.codes.map((code) => (
                         <button
@@ -640,7 +634,7 @@ export default function DataViewPage() {
                               openSummaryCode(code.id);
                             }
                           }}
-                          title="Double-click to open code details"
+                          title={t("Double-click to open code details")}
                         >
                           {code.name}
                         </button>
@@ -649,11 +643,11 @@ export default function DataViewPage() {
                   </div>
                 </section>
 
-                <section className="summary-side-section" aria-label="Source documents">
-                  <h4>Sources</h4>
+                <section className="summary-side-section" aria-label={t("Source documents")}>
+                  <h4>{t("Sources")}</h4>
                   <div className="summary-source-links">
                     {selectedSummaryTheme.sources.length === 0 ? (
-                      <span>No source documents found.</span>
+                      <span>{t("No source documents found.")}</span>
                     ) : (
                       selectedSummaryTheme.sources.map((source) => (
                         <Link key={source.id} href={`/projects/${projectId}/coding?documentId=${source.id}`}>
@@ -674,28 +668,26 @@ export default function DataViewPage() {
           <button
             type="button"
             className="summary-code-backdrop"
-            aria-label="Close code detail"
+            aria-label={t("Close code detail")}
             onClick={closeSummaryCode}
           />
           <section className="summary-code-detail-panel">
             <header className="summary-code-detail-header">
               <div>
                 <h3 id="summary-code-title">{selectedSummaryCode.name}</h3>
-                <p>{selectedSummaryCode.description?.trim() || 'No description saved for this code.'}</p>
+                <p>{selectedSummaryCode.description?.trim() || t("No description saved for this code.")}</p>
               </div>
-              <button type="button" className="ghost-button" onClick={closeSummaryCode}>
-                Close
-              </button>
+              <button type="button" className="ghost-button" onClick={closeSummaryCode}>{t("Close")}</button>
             </header>
 
-            <section className="summary-code-excerpts" aria-label="Coded excerpts">
+            <section className="summary-code-excerpts" aria-label={t("Coded excerpts")}>
               {selectedSummaryCode.excerpts.length === 0 ? (
-                <p>No coded excerpts found for this code.</p>
+                <p>{t("No coded excerpts found for this code.")}</p>
               ) : (
                 selectedSummaryCode.excerpts.map((excerpt) => (
                   <article key={excerpt.id}>
                     <blockquote>{excerpt.snippet}</blockquote>
-                    <small>Source: {excerpt.documentTitle}</small>
+                    <small>{t("Source:")}{' '}{excerpt.documentTitle}</small>
                   </article>
                 ))
               )}

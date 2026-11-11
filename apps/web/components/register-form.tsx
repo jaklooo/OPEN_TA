@@ -1,4 +1,6 @@
 'use client';
+import { t } from '@/lib/i18n';
+
 
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
@@ -21,27 +23,23 @@ export function RegisterForm() {
       await register(email, password, displayName);
       router.push('/projects');
     } catch (err) {
-      setError((err as Error).message || 'Registration failed');
+      setError((err as Error).message || t("Registration failed"));
     }
   };
 
   return (
     <div className="card" style={{ maxWidth: 480, margin: '0 auto' }}>
-      <h2>Create Account</h2>
+      <h2>{t("Create Account")}</h2>
       {error && <p style={{ color: 'var(--accent-2)' }}>{error}</p>}
       <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '0.7rem' }}>
-        <label>
-          Display Name
-          <input
+        <label>{t("Display Name")}<input
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             style={{ width: '100%' }}
           />
         </label>
-        <label>
-          Email
-          <input
+        <label>{t("Email")}<input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -49,9 +47,7 @@ export function RegisterForm() {
             style={{ width: '100%' }}
           />
         </label>
-        <label>
-          Password (min 8 chars)
-          <input
+        <label>{t("Password (min 8 chars)")}<input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -61,11 +57,10 @@ export function RegisterForm() {
           />
         </label>
         <button type="submit" disabled={isLoading}>
-          {isLoading ? 'Creating...' : 'Create Account'}
+          {isLoading ? t("Creating...") : t("Create Account")}
         </button>
       </form>
-      <p style={{ marginTop: '1rem', color: 'var(--muted)' }}>
-        Already have an account? <Link href="/login">Sign In</Link>
+      <p style={{ marginTop: '1rem', color: 'var(--muted)' }}>{t("Already have an account?")}<Link href="/login">{t("Sign In")}</Link>
       </p>
     </div>
   );

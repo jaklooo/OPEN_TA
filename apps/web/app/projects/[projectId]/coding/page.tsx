@@ -1,4 +1,6 @@
 'use client';
+import { t } from '@/lib/i18n';
+
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
@@ -43,7 +45,7 @@ function CodingFallback() {
     <main>
       <TopNav />
       <section className="coding-workspace">
-        <p>Loading coding workspace...</p>
+        <p>{t("Loading coding workspace...")}</p>
       </section>
     </main>
   );
@@ -107,7 +109,7 @@ function CodingWorkspace() {
 
   const highlightedText = useMemo(() => {
     if (!selectedDoc) return [];
-    if (selectedDoc.sourceType === 'IMPORTED_CODES') return [{ text: 'Imported codes only' }];
+    if (selectedDoc.sourceType === 'IMPORTED_CODES') return [{ text: t("Imported codes only") }];
 
     const sortedCodings = [...codings]
       .filter((coding) => coding.startIndex < coding.endIndex)
@@ -161,7 +163,7 @@ function CodingWorkspace() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (!res.ok) throw new Error('Failed to fetch documents');
+      if (!res.ok) throw new Error(t("Failed to fetch documents"));
       const data: Document[] = await res.json();
       setDocuments(data);
 
@@ -181,7 +183,7 @@ function CodingWorkspace() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (!res.ok) throw new Error('Failed to fetch codes');
+      if (!res.ok) throw new Error(t("Failed to fetch codes"));
       const data: Code[] = await res.json();
       setCodes(data);
     } catch (err) {
@@ -197,7 +199,7 @@ function CodingWorkspace() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (!res.ok) throw new Error('Failed to fetch codings');
+      if (!res.ok) throw new Error(t("Failed to fetch codings"));
       const data = await res.json();
       setCodings(data);
     } catch (err) {
@@ -229,7 +231,7 @@ function CodingWorkspace() {
       })
     });
 
-    if (!res.ok) throw new Error('Failed to create code');
+    if (!res.ok) throw new Error(t("Failed to create code"));
     const createdCode: Code = await res.json();
     setCodes((prev) => [createdCode, ...prev]);
     return createdCode.id;
@@ -259,7 +261,7 @@ function CodingWorkspace() {
         })
       });
 
-      if (!res.ok) throw new Error('Failed to create coding');
+      if (!res.ok) throw new Error(t("Failed to create coding"));
       const createdCoding = await res.json();
       setCodings((prev) => [createdCoding, ...prev]);
       setSelection(null);
@@ -295,7 +297,7 @@ function CodingWorkspace() {
         body: JSON.stringify({ codeId })
       });
 
-      if (!res.ok) throw new Error('Failed to update coding');
+      if (!res.ok) throw new Error(t("Failed to update coding"));
       const updatedCoding = await res.json();
       setCodings((prev) => prev.map((item) => (item.id === coding.id ? updatedCoding : item)));
       setEditingCodingId(null);
@@ -317,7 +319,7 @@ function CodingWorkspace() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (!res.ok) throw new Error('Failed to delete coding');
+      if (!res.ok) throw new Error(t("Failed to delete coding"));
       setCodings((prev) => prev.filter((coding) => coding.id !== codingId));
     } catch (err) {
       setError((err as Error).message);
@@ -332,21 +334,17 @@ function CodingWorkspace() {
   const renderAssignmentForm = (variant: 'desktop' | 'mobile') => (
     <form onSubmit={handleCreateCoding} className="panel-form">
       <div className="selection-card-header">
-        <h3>Assign Selection</h3>
+        <h3>{t("Assign Selection")}</h3>
         {variant === 'mobile' && (
-          <button type="button" className="ghost-button" onClick={() => setIsMobileCodingSheetOpen(false)}>
-            Close
-          </button>
+          <button type="button" className="ghost-button" onClick={() => setIsMobileCodingSheetOpen(false)}>{t("Close")}</button>
         )}
       </div>
 
       <blockquote>{selection?.snippet}</blockquote>
 
-      <label className="panel-label">
-        Code name
-        <input
+      <label className="panel-label">{t("Code name")}<input
           type="text"
-          placeholder="Start typing a code..."
+          placeholder={t("Start typing a code...")}
           value={codeName}
           onChange={(event) => setCodeName(event.target.value)}
           autoFocus={variant === 'desktop'}
@@ -364,10 +362,8 @@ function CodingWorkspace() {
         </div>
       )}
 
-      <label className="panel-label">
-        Code description
-        <textarea
-          placeholder="What should this code mean in this context?"
+      <label className="panel-label">{t("Code description")}<textarea
+          placeholder={t("What should this code mean in this context?")}
           value={codeDescription}
           onChange={(event) => setCodeDescription(event.target.value)}
           rows={3}
@@ -378,7 +374,7 @@ function CodingWorkspace() {
         type="submit"
         disabled={isSavingCoding || !codeName.trim()}
       >
-        {isSavingCoding ? 'Saving...' : 'Save Coding'}
+        {isSavingCoding ? t("Saving...") : t("Save Coding")}
       </button>
     </form>
   );
@@ -453,12 +449,12 @@ function CodingWorkspace() {
       <section className="coding-workspace">
         <header className="coding-header">
           <div>
-            <h2>Coding</h2>
+            <h2>{t("Coding")}</h2>
             {selectedDoc && <p>{selectedDoc.title}</p>}
           </div>
           <select value={selectedDocId} onChange={(e) => setSelectedDocId(e.target.value)} disabled={documents.length === 0}>
             {documents.length === 0 ? (
-              <option value="">No documents</option>
+              <option value="">{t("No documents")}</option>
             ) : (
               documents.map((doc) => (
                 <option key={doc.id} value={doc.id}>
@@ -472,9 +468,9 @@ function CodingWorkspace() {
         {error && <p style={{ color: 'var(--accent-2)' }}>{error}</p>}
 
         {isLoading ? (
-          <p>Loading coding workspace...</p>
+          <p>{t("Loading coding workspace...")}</p>
         ) : !selectedDoc ? (
-          <p style={{ color: 'var(--muted)' }}>Add a document before coding.</p>
+          <p style={{ color: 'var(--muted)' }}>{t("Add a document before coding.")}</p>
         ) : (
           <div className="coding-grid">
             <article className="coding-document">
@@ -503,7 +499,7 @@ function CodingWorkspace() {
                       className="coding-highlight"
                       key={`${part.coding.id}-${index}`}
                       style={{ backgroundColor: codeColorMap.get(part.coding.codeId) ?? '#fef08a' }}
-                      title={`${part.coding.code?.name ?? 'Code'}${part.coding.code?.description ? `: ${part.coding.code.description}` : ''}`}
+                      title={`${part.coding.code?.name ?? t("Code")}${part.coding.code?.description ? `: ${part.coding.code.description}` : ''}`}
                     >
                       {part.text}
                     </mark>
@@ -514,13 +510,12 @@ function CodingWorkspace() {
               </div>
               <footer>
                 {isImportedCodesDocument ? (
-                  <span>Imported codes only. Review and analyze these excerpts in Data View.</span>
+                  <span>{t("Imported codes only. Review and analyze these excerpts in Data View.")}</span>
                 ) : selection ? (
-                  <span>
-                    Selected chars: {selection.start} - {selection.end}
+                  <span>{t("Selected chars:")}{' '}{selection.start} - {selection.end}
                   </span>
                 ) : (
-                  <span>Select text in the document to create a coding.</span>
+                  <span>{t("Select text in the document to create a coding.")}</span>
                 )}
               </footer>
             </article>
@@ -529,21 +524,21 @@ function CodingWorkspace() {
               <section className="selection-card">
                 {isImportedCodesDocument ? (
                   <>
-                    <h3>Imported Codes</h3>
-                    <p style={{ color: 'var(--muted)' }}>This document contains imported coded excerpts only.</p>
+                    <h3>{t("Imported Codes")}</h3>
+                    <p style={{ color: 'var(--muted)' }}>{t("This document contains imported coded excerpts only.")}</p>
                   </>
                 ) : selection ? renderAssignmentForm('desktop') : (
                   <>
-                    <h3>Assign Selection</h3>
-                    <p style={{ color: 'var(--muted)' }}>Select text in the document to code it.</p>
+                    <h3>{t("Assign Selection")}</h3>
+                    <p style={{ color: 'var(--muted)' }}>{t("Select text in the document to code it.")}</p>
                   </>
                 )}
               </section>
 
               <section>
-                <h3>Latest Codings</h3>
+                <h3>{t("Latest Codings")}</h3>
                 {codings.length === 0 ? (
-                  <p style={{ color: 'var(--muted)' }}>No codings yet.</p>
+                  <p style={{ color: 'var(--muted)' }}>{t("No codings yet.")}</p>
                 ) : (
                   <ol className="coding-list">
                     {codings.slice(0, 10).map((coding) => (
@@ -561,26 +556,18 @@ function CodingWorkspace() {
                               rows={3}
                             />
                             <div className="inline-actions">
-                              <button type="button" onClick={() => handleUpdateCoding(coding)}>
-                                Save
-                              </button>
-                              <button type="button" onClick={() => setEditingCodingId(null)}>
-                                Cancel
-                              </button>
+                              <button type="button" onClick={() => handleUpdateCoding(coding)}>{t("Save")}</button>
+                              <button type="button" onClick={() => setEditingCodingId(null)}>{t("Cancel")}</button>
                             </div>
                           </div>
                         ) : (
                           <>
-                            <strong>{coding.code?.name ?? 'Code'}</strong>
+                            <strong>{coding.code?.name ?? t("Code")}</strong>
                             {coding.code?.description && <small>{coding.code.description}</small>}
                             <span>"{coding.snippet.slice(0, 90)}{coding.snippet.length > 90 ? '...' : ''}"</span>
                             <div className="inline-actions">
-                              <button type="button" onClick={() => handleEditCoding(coding)}>
-                                Edit
-                              </button>
-                              <button type="button" onClick={() => handleDeleteCoding(coding.id)}>
-                                Delete
-                              </button>
+                              <button type="button" onClick={() => handleEditCoding(coding)}>{t("Edit")}</button>
+                              <button type="button" onClick={() => handleDeleteCoding(coding.id)}>{t("Delete")}</button>
                             </div>
                           </>
                         )}
@@ -596,17 +583,15 @@ function CodingWorkspace() {
                 type="button"
                 className="mobile-code-selection-button"
                 onClick={() => setIsMobileCodingSheetOpen(true)}
-              >
-                Code selection
-              </button>
+              >{t("Code selection")}</button>
             )}
 
             {selection && isMobileCodingSheetOpen && (
-              <div className="mobile-coding-sheet" role="dialog" aria-modal="true" aria-label="Assign selected text">
+              <div className="mobile-coding-sheet" role="dialog" aria-modal="true" aria-label={t("Assign selected text")}>
                 <button
                   type="button"
                   className="mobile-coding-backdrop"
-                  aria-label="Close coding form"
+                  aria-label={t("Close coding form")}
                   onClick={() => setIsMobileCodingSheetOpen(false)}
                 />
                 <section className="selection-card mobile-coding-card">
